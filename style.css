@@ -1,0 +1,130 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px;
+}
+
+.header {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: white;
+  padding: 14px 16px;
+  border-radius: 16px;
+  margin-bottom: 12px;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.subtitle {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.card {
+  background: white;
+  padding: 14px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.status {
+  margin: 12px 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.status.error {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.request-card {
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.request-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.request-top span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.person {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.phone {
+  margin-top: 5px;
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.description {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  line-height: 1.35;
+}
+
+.footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.empty {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed #d1d5db;
+  color: #6b7280;
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>НашДом CRM</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="logo">🏠 НашДом CRM</div>
+      <div class="subtitle">PWA версия</div>
+    </header>
+
+    <main class="card">
+      <h1>Активные заявки</h1>
+      <button onclick="loadData()">Обновить</button>
+      <div id="status" class="status"></div>
+      <div id="requests" class="requests-list"></div>
+    </main>
+  </div>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzVrcm54k04A7vSHsUedjAQJ5yVynVeLpXXs4DFNW4d0mT7OpQdwNbUnvGoeI6L3bSrvA/exec';
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
