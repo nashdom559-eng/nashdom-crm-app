@@ -12,16 +12,149 @@
 <body>
   <div class="app">
     <header class="header">
-      <div class="logo">🏠 НашДом CRM</div>
-      <div class="subtitle">PWA версия</div>
+      <div>
+        <div class="logo">🏠 НашДом CRM</div>
+        <div class="subtitle">PWA v0.7</div>
+      </div>
     </header>
 
-    <main class="card">
-      <h1>Активные заявки</h1>
-      <button onclick="loadData()">Обновить</button>
-      <div id="status" class="status"></div>
-      <div id="requests" class="requests-list"></div>
-    </main>
+    <section id="viewHome" class="view active">
+      <main class="card">
+        <h1>Сегодня</h1>
+        <button onclick="loadData()">Обновить</button>
+        <div id="status" class="status"></div>
+        <div id="dashboardStats" class="stats-grid"></div>
+        <div id="todayRequests" class="requests-list"></div>
+      </main>
+    </section>
+
+    <section id="viewNew" class="view">
+      <main class="card">
+        <h1>Новая заявка</h1>
+
+        <label>1. Дом</label>
+        <select id="house"></select>
+
+        <label>2. Квартира</label>
+        <input id="flat" type="text" placeholder="Например: 63">
+
+        <div id="flatHistory" class="flat-history"></div>
+        <div id="contactSuggestions" class="contact-suggestions"></div>
+
+        <label>3. Заявка</label>
+        <textarea id="description" placeholder="Например: течет стояк"></textarea>
+
+        <label>4. ФИО / как обращаться</label>
+        <input id="name" type="text" placeholder="Например: Иванов Сергей">
+
+        <label>5. Телефон</label>
+        <input id="phone" type="tel" placeholder="Например: 89123456789">
+
+        <label>6. Плановый визит</label>
+        <input id="planDate" type="datetime-local">
+
+        <button id="saveBtn" onclick="saveRequest()">Сохранить заявку</button>
+      </main>
+    </section>
+
+    <section id="viewAccepted" class="view">
+      <main class="card">
+        <h1>Активные заявки</h1>
+        <div id="acceptedRequests" class="requests-list"></div>
+      </main>
+    </section>
+
+    <section id="viewSearch" class="view">
+      <main class="card">
+        <h1>Журнал</h1>
+
+        <div class="journal-filters">
+          <button class="active" data-filter="all" onclick="setJournalFilter('all')">Все</button>
+          <button data-filter="active" onclick="setJournalFilter('active')">Активные</button>
+          <button data-filter="waiting" onclick="setJournalFilter('waiting')">Ожидают</button>
+          <button data-filter="done" onclick="setJournalFilter('done')">Выполненные</button>
+        </div>
+
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="Телефон, ФИО, дом, квартира, текст заявки"
+          oninput="runSearch()"
+        >
+
+        <div id="searchResults" class="requests-list search-results"></div>
+      </main>
+    </section>
+
+    <div id="doneModal" class="modal">
+      <div class="modal-box">
+        <h2>Выполнение заявки</h2>
+
+        <label>Комментарий по выполнению</label>
+        <textarea id="doneComment" placeholder="Например: заменили прокладку, течь устранена"></textarea>
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeDoneModal()">Отмена</button>
+          <button type="button" class="modal-ok" onclick="confirmDoneRequest()">Выполнить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="planModal" class="modal">
+      <div class="modal-box">
+        <h2>Назначить визит</h2>
+
+        <label>Дата и время</label>
+        <input id="planModalDate" type="datetime-local">
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closePlanModal()">Отмена</button>
+          <button type="button" class="modal-ok" onclick="confirmPlanRequest()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="holdModal" class="modal">
+      <div class="modal-box">
+        <h2>Ожидание / следующее действие</h2>
+
+        <label>Причина ожидания</label>
+        <textarea id="holdComment" placeholder="Например: ждём согласование ТСЖ"></textarea>
+
+        <label>Следующее действие</label>
+        <input id="holdAction" type="text" placeholder="Например: купить радиаторные краны">
+
+        <label>Напомнить</label>
+        <input id="holdReminder" type="datetime-local">
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeHoldModal()">Отмена</button>
+          <button type="button" class="modal-ok" onclick="confirmHoldRequest()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav">
+      <button class="active" data-view="home" onclick="showView('home')">
+        <span class="nav-icon">🏠</span>
+        <span>Сегодня</span>
+      </button>
+
+      <button data-view="new" onclick="showView('new')">
+        <span class="nav-icon">➕</span>
+        <span>Новая</span>
+      </button>
+
+      <button data-view="accepted" onclick="showView('accepted')">
+        <span class="nav-icon">📋</span>
+        <span>Активные</span>
+      </button>
+
+      <button data-view="search" onclick="showView('search')">
+        <span class="nav-icon">🔍</span>
+        <span>Журнал</span>
+      </button>
+    </nav>
   </div>
 
   <script>
