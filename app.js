@@ -132,6 +132,7 @@ function loadData() {
 
       fillHouseSelect();
       fillEditHouseSelect();
+      setupHousesView();
       renderDashboard();
       renderAcceptedRequests();
       runSearch();
@@ -1583,8 +1584,8 @@ document.addEventListener('DOMContentLoaded', setupVoiceInput);
 
 function setupHousesView() {
   const select = document.getElementById('houseCardSelect');
-  if (!select || typeof appData === 'undefined') return;
-  const houses = Array.isArray(appData.houses) ? appData.houses : [];
+  if (!select || !CRM || !CRM.data) return;
+  const houses = Array.isArray(CRM.data.houses) ? CRM.data.houses : [];
   const current = select.value;
   select.innerHTML = '<option value="">— Выберите дом —</option>' +
     houses.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
@@ -1640,19 +1641,19 @@ function renderHouseCard() {
   const select = document.getElementById('houseCardSelect');
   const box = document.getElementById('houseCard');
   const flatBox = document.getElementById('flatCard');
-  if (!select || !box || !flatBox || typeof appData === 'undefined') return;
+  if (!select || !box || !flatBox || !CRM || !CRM.data) return;
 
   const house = select.value;
   flatBox.innerHTML = '';
   if (!house) { box.innerHTML = ''; return; }
 
-  const requests = (appData.allRequests || []).filter(r => String(r.house || '') === house);
+  const requests = (CRM.data.allRequests || []).filter(r => String(r.house || '') === house);
   const active = requests.filter(r => !houseRequestDone(r) && !houseRequestWaiting(r));
   const waiting = requests.filter(houseRequestWaiting);
   const done = requests.filter(houseRequestDone);
   const emergency = requests.filter(r => houseRequestEmergency(r) && !houseRequestDone(r));
 
-  const contactFlats = (appData.contacts || [])
+  const contactFlats = (CRM.data.contacts || [])
     .filter(c => String(c.house || '') === house)
     .map(c => String(c.flat || '').trim());
   const requestFlats = requests.map(r => String(r.flat || '').trim());
@@ -1684,15 +1685,15 @@ function renderFlatCard() {
   const houseSelect = document.getElementById('houseCardSelect');
   const flatSelect = document.getElementById('houseFlatSelect');
   const box = document.getElementById('flatCard');
-  if (!houseSelect || !flatSelect || !box || typeof appData === 'undefined') return;
+  if (!houseSelect || !flatSelect || !box || !CRM || !CRM.data) return;
 
   const house = houseSelect.value;
   const flat = flatSelect.value;
   if (!flat) { box.innerHTML = ''; return; }
 
-  const contacts = (appData.contacts || []).filter(c =>
+  const contacts = (CRM.data.contacts || []).filter(c =>
     String(c.house || '') === house && String(c.flat || '') === flat);
-  const requests = (appData.allRequests || []).filter(r =>
+  const requests = (CRM.data.allRequests || []).filter(r =>
     String(r.house || '') === house && String(r.flat || '') === flat);
   const active = requests.filter(r => !houseRequestDone(r));
 
