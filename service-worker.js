@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nashdom-crm-v0.12-pwa-1';
+const CACHE_NAME = 'nashdom-crm-v0.13-houses-1';
 const APP_SHELL = [
   './',
   './index.html',
