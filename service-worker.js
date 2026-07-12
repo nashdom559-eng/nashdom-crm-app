@@ -1,407 +1,72 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2563eb">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <title>НашДом CRM</title>
-
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
-</head>
-
-<body>
-  <div id="updateBanner" class="update-banner">
-    <span>🔄 Доступна новая версия</span>
-    <button type="button" onclick="applyAppUpdate()">Обновить</button>
-  </div>
-  <div class="app">
-    <header class="header">
-      <div>
-        <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.15.1 · исполнители и пересылка</div>
-        <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
-      </div>
-    </header>
-
-    <section id="viewHome" class="view active">
-      <main class="card">
-        <h1>Сегодня</h1>
-        <button onclick="loadData()">Обновить</button>
-        <div id="status" class="status"></div>
-        <div id="dashboardStats" class="stats-grid"></div>
-        <div id="residentInbox"></div>
-        <div id="todayRequests" class="requests-list"></div>
-      </main>
-    </section>
-
-    <section id="viewNew" class="view">
-      <main class="card">
-        <h1>Новая заявка</h1>
-
-        <label>1. Дом</label>
-        <select id="house"></select>
-
-        <label>2. Квартира</label>
-        <input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
-
-        <div id="flatHistory" class="flat-history"></div>
-        <div id="contactSuggestions" class="contact-suggestions"></div>
-
-        <label>3. Заявка</label>
-        <div class="voice-field">
-          <textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea>
-          <button id="voiceBtn" type="button" class="voice-btn" onclick="toggleVoiceInput()">🎙 Говорить</button>
-        </div>
-        <div id="voiceStatus" class="voice-status"></div>
-
-        <label class="emergency-toggle">
-          <input id="isEmergency" type="checkbox">
-          <span>🚨 Аварийная заявка</span>
-        </label>
-
-        <label>4. ФИО / как обращаться</label>
-        <input id="name" type="text" placeholder="Например: Иванов Сергей">
-
-        <label>5. Телефон</label>
-        <input id="phone" type="tel" placeholder="Например: 89123456789">
-
-        <label>6. Плановый визит</label>
-        <input id="planDate" type="datetime-local">
-
-        <button id="saveBtn" onclick="saveRequest()">Сохранить заявку</button>
-      </main>
-    </section>
-
-    <section id="viewAccepted" class="view">
-      <main class="card">
-        <h1>Активные заявки</h1>
-        <div id="acceptedRequests" class="requests-list"></div>
-      </main>
-    </section>
-
-    <section id="viewSearch" class="view">
-      <main class="card">
-        <h1>Журнал</h1>
-
-        <div class="journal-filters">
-          <button class="active" data-filter="all" onclick="setJournalFilter('all')">Все</button>
-          <button data-filter="active" onclick="setJournalFilter('active')">Активные</button>
-          <button data-filter="waiting" onclick="setJournalFilter('waiting')">Ожидают</button>
-          <button data-filter="done" onclick="setJournalFilter('done')">Выполненные</button>
-        </div>
-
-        <input
-          id="searchInput"
-          type="text"
-          placeholder="Телефон, ФИО, дом, квартира, текст заявки"
-          oninput="runSearch()"
-        >
-
-        <div id="searchResults" class="requests-list search-results"></div>
-      </main>
-    </section>
-
-
-    <section id="viewHouses" class="view">
-      <main class="card">
-        <h1>Дома</h1>
-        <label>Выберите дом</label>
-        <select id="houseCardSelect" onchange="renderHouseCard()"></select>
-
-        <div id="houseReportControls" class="report-controls" hidden>
-          <h2>Отчёт по заявкам</h2>
-
-          <div class="report-grid">
-            <div>
-              <label>Период</label>
-              <select id="reportPeriod" onchange="applyReportPeriod()">
-                <option value="all">За всё время</option>
-                <option value="month" selected>Текущий месяц</option>
-                <option value="previousMonth">Прошлый месяц</option>
-                <option value="custom">Произвольный период</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Статус</label>
-              <select id="reportStatus" onchange="renderHouseRequests()">
-                <option value="all">Все заявки</option>
-                <option value="active">Активные</option>
-                <option value="waiting">Ожидают</option>
-                <option value="done">Выполненные</option>
-                <option value="emergency">Аварийные</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="report-grid">
-            <div>
-              <label>С даты</label>
-              <input id="reportDateFrom" type="date" onchange="renderHouseRequests()">
-            </div>
-            <div>
-              <label>По дату</label>
-              <input id="reportDateTo" type="date" onchange="renderHouseRequests()">
-            </div>
-          </div>
-
-          <label>Квартира</label>
-          <input id="reportFlatFilter" type="text" placeholder="Все квартиры" oninput="renderHouseRequests()">
-
-          <div class="report-actions">
-            <button type="button" class="share-report-btn" onclick="shareHouseReport()">📤 Поделиться</button>
-            <button type="button" class="print-report-btn" onclick="printHouseReport()">🖨 Печать / PDF</button>
-          </div>
-        </div>
-
-        <div id="houseCard" class="house-card-wrap"></div>
-        <div id="flatCard" class="flat-card-wrap"></div>
-      </main>
-    </section>
-
-    <div id="doneModal" class="modal">
-      <div class="modal-box">
-        <h2>Выполнение заявки</h2>
-        <label>Комментарий по выполнению</label>
-        <textarea id="doneComment" placeholder="Например: заменили прокладку, течь устранена"></textarea>
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeDoneModal()">Отмена</button>
-          <button type="button" class="modal-ok" onclick="confirmDoneRequest()">Выполнить</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="planModal" class="modal">
-      <div class="modal-box">
-        <h2>Назначить визит</h2>
-        <label>Дата и время</label>
-        <input id="planModalDate" type="datetime-local">
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closePlanModal()">Отмена</button>
-          <button type="button" class="modal-ok" onclick="confirmPlanRequest()">Сохранить</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="holdModal" class="modal">
-      <div class="modal-box">
-        <h2>Ожидание / следующее действие</h2>
-        <label>Причина ожидания</label>
-        <textarea id="holdComment" placeholder="Например: ждём согласование ТСЖ"></textarea>
-        <label>Следующее действие</label>
-        <input id="holdAction" type="text" placeholder="Например: купить радиаторные краны">
-        <label>Напомнить</label>
-        <input id="holdReminder" type="datetime-local">
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeHoldModal()">Отмена</button>
-          <button type="button" class="modal-ok" onclick="confirmHoldRequest()">Сохранить</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="emergencyModal" class="modal">
-      <div class="modal-box">
-        <h2>🚨 Этап аварии</h2>
-
-        <label>Что произошло</label>
-        <select id="emergencyStage">
-          <option value="ARRIVED">Прибыл на место</option>
-          <option value="SHUTOFF">Стояк / система перекрыты</option>
-          <option value="WAITING_ACCESS">Ожидаем доступ</option>
-          <option value="FOUND">Причина найдена / работы выполнены</option>
-          <option value="RESTORED">Вода / система открыты</option>
-          <option value="CLOSED">Авария закрыта</option>
-        </select>
-
-        <label>Комментарий</label>
-        <textarea id="emergencyComment" placeholder="Например: перекрыт стояк ХВС, ждём доступ в кв. 31"></textarea>
-
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeEmergencyModal()">Отмена</button>
-          <button type="button" class="emergency-save" onclick="confirmEmergencyEvent()">Записать</button>
-        </div>
-      </div>
-    </div>
-
-
-    <div id="editModal" class="modal">
-      <div class="modal-box">
-        <h2>✏️ Редактировать заявку</h2>
-
-        <label>Дом</label>
-        <select id="editHouse"></select>
-
-        <label>Квартира</label>
-        <input id="editFlat" type="text">
-
-        <label>Описание</label>
-        <textarea id="editDescription"></textarea>
-
-        <label class="emergency-toggle">
-          <input id="editIsEmergency" type="checkbox">
-          <span>🚨 Аварийная заявка</span>
-        </label>
-
-        <label>ФИО</label>
-        <input id="editName" type="text">
-
-        <label>Телефон</label>
-        <input id="editPhone" type="tel">
-
-        <label>Плановая дата</label>
-        <input id="editPlanDate" type="datetime-local">
-
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeEditModal()">Отмена</button>
-          <button type="button" class="modal-ok" onclick="confirmEditRequest()">Сохранить</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="reopenModal" class="modal">
-      <div class="modal-box">
-        <h2>↩ Возобновить заявку</h2>
-
-        <label>Что обнаружилось после закрытия</label>
-        <textarea id="reopenComment" placeholder="Например: после запуска снова появилась течь"></textarea>
-
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeReopenModal()">Отмена</button>
-          <button type="button" class="reopen-save" onclick="confirmReopenRequest()">Возобновить</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="deleteModal" class="modal">
-      <div class="modal-box">
-        <h2>🗑 Удаление заявки</h2>
-        <p id="deleteRequestText" class="delete-warning"></p>
-        <p class="delete-note">Будут удалены заявка, её хронология и событие календаря.</p>
-
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeDeleteModal()">Отмена</button>
-          <button type="button" class="delete-confirm" onclick="confirmDeleteRequest()">Удалить</button>
-        </div>
-      </div>
-    </div>
-
-
-    <div id="dispatchModal" class="modal">
-      <div class="modal-box">
-        <h2>📤 Передать исполнителю</h2>
-
-        <label>Категория работ</label>
-        <select id="dispatchCategory">
-          <option value="Сантехника">Сантехника</option>
-          <option value="Электрика">Электрика</option>
-          <option value="Отопление / ГВС">Отопление / ГВС</option>
-          <option value="Общее имущество">Общее имущество</option>
-          <option value="Общестроительные">Общестроительные</option>
-          <option value="Другое">Другое</option>
-        </select>
-
-        <label>Исполнитель</label>
-        <input id="dispatchExecutor" type="text" placeholder="Например: Алексей, электрик">
-
-        <div class="quick-executors">
-          <button type="button" onclick="setDispatchExecutor('Сантехник')">Сантехник</button>
-          <button type="button" onclick="setDispatchExecutor('Электрик')">Электрик</button>
-          <button type="button" onclick="setDispatchExecutor('Председатель')">Председатель</button>
-          <button type="button" onclick="setDispatchExecutor('Подрядчик')">Подрядчик</button>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeDispatchModal()">Отмена</button>
-          <button type="button" class="dispatch-save" onclick="confirmDispatchRequest()">Сохранить</button>
-        </div>
-      </div>
-    </div>
-
-    <nav class="bottom-nav">
-      <button class="active" data-view="home" onclick="showView('home')">
-        <span class="nav-icon">🏠</span>
-        <span>Сегодня</span>
-      </button>
-      <button data-view="new" onclick="showView('new')">
-        <span class="nav-icon">➕</span>
-        <span>Новая</span>
-      </button>
-      <button data-view="accepted" onclick="showView('accepted')">
-        <span class="nav-icon">📋</span>
-        <span>Активные</span>
-      </button>
-      <button data-view="search" onclick="showView('search')">
-        <span class="nav-icon">🔍</span>
-        <span>Журнал</span>
-      </button>
-      <button data-view="houses" onclick="showView('houses')">
-        <span class="nav-icon">🏢</span>
-        <span>Дома</span>
-      </button>
-    </nav>
-  </div>
-
-  <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzVrcm54k04A7vSHsUedjAQJ5yVynVeLpXXs4DFNW4d0mT7OpQdwNbUnvGoeI6L3bSrvA/exec';
-  </script>
-  <script src="app.js"></script>
-
-  <script>
-    window.pendingServiceWorker = null;
-
-    function showUpdateBanner(worker) {
-      window.pendingServiceWorker = worker;
-      const banner = document.getElementById('updateBanner');
-      if (banner) banner.classList.add('visible');
-    }
-
-    function applyAppUpdate() {
-      if (window.pendingServiceWorker) {
-        window.pendingServiceWorker.postMessage({ type: 'SKIP_WAITING' });
-      } else {
-        location.reload();
-      }
-    }
-
-    if ('serviceWorker' in navigator) {
-      let refreshing = false;
-
-      navigator.serviceWorker.addEventListener('controllerchange', function() {
-        if (refreshing) return;
-        refreshing = true;
-        location.reload();
-      });
-
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./service-worker.js', { scope: './' })
-          .then(function(registration) {
-            if (registration.waiting) showUpdateBanner(registration.waiting);
-
-            registration.addEventListener('updatefound', function() {
-              const worker = registration.installing;
-              if (!worker) return;
-
-              worker.addEventListener('statechange', function() {
-                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-                  showUpdateBanner(worker);
-                }
-              });
-            });
-
-            registration.update();
-            setInterval(function() { registration.update(); }, 30 * 60 * 1000);
-          })
-          .catch(function(error) {
-            console.error('Service worker registration failed:', error);
-          });
-      });
-    }
-  </script>
-
-</body>
-</html>
+const CACHE_NAME = 'nashdom-crm-v0.15-ek98-1';
+const APP_SHELL = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './resident.html',
+  './resident.css',
+  './resident.js'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+      )
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (
+    url.hostname.includes('script.google.com') ||
+    url.hostname.includes('googleusercontent.com')
+  ) return;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('./', copy));
+          return response;
+        })
+        .catch(() => caches.match('./'))
+    );
+    return;
+  }
+
+  event.respondWith(
+    fetch(request)
+      .then(response => {
+        if (response && response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
+  );
+});
