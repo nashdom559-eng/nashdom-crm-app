@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.14 · отчёты по домам</div>
+        <div class="subtitle">PWA v0.15.1 · исполнители и пересылка</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -34,6 +34,7 @@
         <button onclick="loadData()">Обновить</button>
         <div id="status" class="status"></div>
         <div id="dashboardStats" class="stats-grid"></div>
+        <div id="residentInbox"></div>
         <div id="todayRequests" class="requests-list"></div>
       </main>
     </section>
@@ -285,6 +286,38 @@
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeDeleteModal()">Отмена</button>
           <button type="button" class="delete-confirm" onclick="confirmDeleteRequest()">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="dispatchModal" class="modal">
+      <div class="modal-box">
+        <h2>📤 Передать исполнителю</h2>
+
+        <label>Категория работ</label>
+        <select id="dispatchCategory">
+          <option value="Сантехника">Сантехника</option>
+          <option value="Электрика">Электрика</option>
+          <option value="Отопление / ГВС">Отопление / ГВС</option>
+          <option value="Общее имущество">Общее имущество</option>
+          <option value="Общестроительные">Общестроительные</option>
+          <option value="Другое">Другое</option>
+        </select>
+
+        <label>Исполнитель</label>
+        <input id="dispatchExecutor" type="text" placeholder="Например: Алексей, электрик">
+
+        <div class="quick-executors">
+          <button type="button" onclick="setDispatchExecutor('Сантехник')">Сантехник</button>
+          <button type="button" onclick="setDispatchExecutor('Электрик')">Электрик</button>
+          <button type="button" onclick="setDispatchExecutor('Председатель')">Председатель</button>
+          <button type="button" onclick="setDispatchExecutor('Подрядчик')">Подрядчик</button>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeDispatchModal()">Отмена</button>
+          <button type="button" class="dispatch-save" onclick="confirmDispatchRequest()">Сохранить</button>
         </div>
       </div>
     </div>
