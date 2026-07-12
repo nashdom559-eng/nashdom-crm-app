@@ -19,10 +19,20 @@ const VAPID_KEY = "BKsqdcd48X3HO3mmic7RxJjyShEnfK3SCXtaL2fXCNh9kaiHeyTWpJTMrGS0e
 
 const button = document.getElementById("pushButton");
 
-function setButton(text, disabled) {
+function setButton(text, disabled, hidden) {
   if (!button) return;
   button.textContent = text;
   button.disabled = Boolean(disabled);
+  button.style.display = hidden ? "none" : "";
+}
+
+function setPushStatus(enabled) {
+  const icon = document.getElementById("pushStatusIcon");
+  if (!icon) return;
+
+  icon.textContent = enabled ? "🔔" : "🔕";
+  icon.title = enabled ? "Уведомления включены" : "Уведомления выключены";
+  icon.classList.toggle("enabled", Boolean(enabled));
 }
 
 async function enablePush() {
@@ -64,10 +74,12 @@ async function enablePush() {
       },
       function() {
         localStorage.setItem("nashdom_push_enabled", "1");
-        setButton("🔔 Уведомления включены", true);
+        setPushStatus(true);
+        setButton("🔔 Уведомления включены", true, true);
       },
       function(error) {
-        setButton("🔔 Включить уведомления", false);
+        setPushStatus(false);
+        setButton("🔔 Включить уведомления", false, false);
         alert("Ошибка регистрации уведомлений: " + error);
       }
     );
@@ -88,7 +100,8 @@ async function enablePush() {
 
   } catch (error) {
     console.error(error);
-    setButton("🔔 Включить уведомления", false);
+    setPushStatus(false);
+    setButton("🔔 Включить уведомления", false, false);
     alert("Не удалось включить уведомления: " + (error.message || error));
   }
 }
@@ -96,7 +109,16 @@ async function enablePush() {
 if (button) {
   button.addEventListener("click", enablePush);
 
-  if (localStorage.getItem("nashdom_push_enabled") === "1") {
-    setButton("🔔 Уведомления включены", true);
+  const enabled =
+    localStorage.getItem("nashdom_push_enabled") === "1" &&
+    Notification.permission === "granted";
+
+  setPushStatus(enabled);
+
+  if (enabled) {
+    setButton("🔔 Уведомления включены", true, true);
+  } else {
+    localStorage.removeItem("nashdom_push_enabled");
+    setButton("🔔 Включить уведомления", false, false);
   }
 }
