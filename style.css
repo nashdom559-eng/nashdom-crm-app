@@ -430,3 +430,60 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
   .card-actions { gap: 6px; }
   .plan-btn, .hold-btn, .small-btn, .emergency-btn { font-size: 13px; padding: 10px 4px; }
 }
+
+
+.management-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #d1d5db;
+}
+
+.management-actions:has(.edit-btn:only-child) {
+  grid-template-columns: 1fr;
+}
+
+.manage-btn {
+  margin: 0;
+  padding: 9px 5px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+.edit-btn {
+  background: #64748b;
+}
+
+.reopen-btn,
+.reopen-save {
+  background: #7c3aed;
+}
+
+.delete-btn,
+.delete-confirm {
+  background: #b91c1c;
+}
+
+.delete-warning {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.delete-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .management-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .management-actions .delete-btn {
+    grid-column: 1 / -1;
+  }
+}
