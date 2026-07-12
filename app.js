@@ -32,6 +32,9 @@ const CRM = {
     currentPlanRowNumber: null,
     currentHoldRowNumber: null,
     currentEmergencyRowNumber: null,
+    currentEditRowNumber: null,
+    currentReopenRowNumber: null,
+    currentDeleteRowNumber: null,
     journalFilter: 'all'
   }
 };
@@ -128,6 +131,7 @@ function loadData() {
       };
 
       fillHouseSelect();
+      fillEditHouseSelect();
       renderDashboard();
       renderAcceptedRequests();
       runSearch();
@@ -183,6 +187,23 @@ function fillHouseSelect() {
   if (currentValue) {
     select.value = currentValue;
   }
+}
+
+function fillEditHouseSelect() {
+  const select = document.getElementById('editHouse');
+  if (!select) return;
+
+  const currentValue = select.value;
+  select.innerHTML = '';
+
+  (CRM.data.houses || []).forEach(function(house) {
+    const option = document.createElement('option');
+    option.value = house;
+    option.textContent = house;
+    select.appendChild(option);
+  });
+
+  if (currentValue) select.value = currentValue;
 }
 
 function saveRequest() {
@@ -538,6 +559,35 @@ function renderRequestCard(req, showActions) {
       ${emergencyTimeline}
       ${doneInfo}
       ${actions}
+      ${renderManagementActions(req)}
+    </div>
+  `;
+}
+
+function renderManagementActions(req) {
+  const editButton = `
+    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">
+      ✏️ Редактировать
+    </button>
+  `;
+
+  if (req.status === 'Выполнено') {
+    return `
+      <div class="management-actions">
+        ${editButton}
+        <button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">
+          ↩ Возобновить
+        </button>
+        <button class="manage-btn delete-btn" onclick="openDeleteModal(${Number(req.rowNumber)}, '${escapeJs(req.id || '')}')">
+          🗑 Удалить
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="management-actions">
+      ${editButton}
     </div>
   `;
 }
@@ -666,6 +716,145 @@ function getJournalTitle() {
   return 'Все заявки';
 }
 
+
+
+function findRequestByRow(rowNumber) {
+  return (CRM.data.allRequests || []).find(function(req) {
+    return Number(req.rowNumber) === Number(rowNumber);
+  }) || null;
+}
+
+function openEditModal(rowNumber) {
+  const req = findRequestByRow(rowNumber);
+  if (!req) return;
+
+  CRM.state.currentEditRowNumber = rowNumber;
+
+  setValue('editHouse', req.house || '');
+  setValue('editFlat', req.flat || '');
+  setValue('editDescription', req.description || '');
+  setValue('editName', req.name || '');
+  setValue('editPhone', req.phone || '');
+  setValue('editPlanDate', req.rawPlanDate || '');
+  setChecked('editIsEmergency', Boolean(req.isEmergency));
+
+  const modal = document.getElementById('editModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeEditModal() {
+  CRM.state.currentEditRowNumber = null;
+
+  const modal = document.getElementById('editModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function confirmEditRequest() {
+  const rowNumber = CRM.state.currentEditRowNumber;
+  if (!rowNumber) return;
+
+  const data = {
+    rowNumber: rowNumber,
+    house: getValue('editHouse'),
+    flat: getValue('editFlat'),
+    description: getValue('editDescription'),
+    name: getValue('editName'),
+    phone: getValue('editPhone'),
+    planDate: getValue('editPlanDate'),
+    isEmergency: getChecked('editIsEmergency')
+  };
+
+  if (!data.house || !data.flat || !data.description) {
+    showStatus('Дом, квартира и описание обязательны', true);
+    return;
+  }
+
+  apiCall(
+    'updateRequest',
+    data,
+    function(result) {
+      closeEditModal();
+      showStatus(result.message || 'Заявка обновлена');
+      loadData();
+    },
+    function(error) {
+      showStatus('Ошибка: ' + error, true);
+    }
+  );
+}
+
+function openReopenModal(rowNumber) {
+  CRM.state.currentReopenRowNumber = rowNumber;
+  setValue('reopenComment', '');
+
+  const modal = document.getElementById('reopenModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeReopenModal() {
+  CRM.state.currentReopenRowNumber = null;
+
+  const modal = document.getElementById('reopenModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function confirmReopenRequest() {
+  const rowNumber = CRM.state.currentReopenRowNumber;
+  if (!rowNumber) return;
+
+  apiCall(
+    'reopenRequest',
+    {
+      rowNumber: rowNumber,
+      comment: getValue('reopenComment')
+    },
+    function(result) {
+      closeReopenModal();
+      showStatus(result.message || 'Заявка возобновлена');
+      loadData();
+    },
+    function(error) {
+      showStatus('Ошибка: ' + error, true);
+    }
+  );
+}
+
+function openDeleteModal(rowNumber, requestId) {
+  CRM.state.currentDeleteRowNumber = rowNumber;
+
+  const text = document.getElementById('deleteRequestText');
+  if (text) {
+    text.textContent = 'Удалить заявку ' + requestId + ' и всю её хронологию?';
+  }
+
+  const modal = document.getElementById('deleteModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeDeleteModal() {
+  CRM.state.currentDeleteRowNumber = null;
+
+  const modal = document.getElementById('deleteModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function confirmDeleteRequest() {
+  const rowNumber = CRM.state.currentDeleteRowNumber;
+  if (!rowNumber) return;
+
+  apiCall(
+    'deleteRequest',
+    { rowNumber: rowNumber },
+    function(result) {
+      closeDeleteModal();
+      showStatus(result.message || 'Заявка удалена');
+      loadData();
+    },
+    function(error) {
+      showStatus('Ошибка: ' + error, true);
+    }
+  );
+}
 
 function renderEmergencyTimeline(events) {
   if (!events || !events.length) {
