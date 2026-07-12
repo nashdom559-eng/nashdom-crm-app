@@ -494,3 +494,47 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
   color: var(--muted);
   font-size: 13px;
 }
+
+
+.voice-field {
+  margin-top: 0;
+}
+
+.voice-field textarea {
+  display: block;
+}
+
+.voice-btn {
+  margin-top: 8px;
+  background: #0f766e;
+}
+
+.voice-btn:hover {
+  background: #115e59;
+}
+
+.voice-btn.listening {
+  background: #dc2626;
+  animation: voicePulse 1.1s infinite;
+}
+
+.voice-status {
+  display: none;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.voice-status.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+@keyframes voicePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
