@@ -603,3 +603,100 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
   .report-grid { grid-template-columns:1fr; gap:0; }
   .report-actions { grid-template-columns:1fr; }
 }
+
+
+/* v0.15 — входящие заявки жителей */
+.resident-inbox {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+}
+.resident-inbox-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.resident-inbox-title span {
+  display: inline-block;
+  min-width: 25px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  text-align: center;
+  font-size: 13px;
+}
+.resident-inbox-list { display:grid; gap:10px; }
+.resident-request-card {
+  padding: 11px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #dbeafe;
+}
+.resident-request-top { display:grid; gap:5px; }
+.resident-emergency {
+  color:#b91c1c;
+  font-size:12px;
+  font-weight:800;
+}
+.resident-person { margin-top:7px; font-weight:700; }
+.resident-description { margin-top:9px; white-space:pre-wrap; }
+.resident-actions {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+  margin-top:10px;
+}
+.resident-actions button { margin:0; padding:9px 5px; font-size:12px; }
+.resident-emergency-btn { background:#dc2626; }
+.resident-reject-btn { background:#64748b; grid-column:1 / -1; }
+
+
+/* v0.15.1 — диспетчеризация исполнителям */
+.request-assignment {
+  margin-top: 7px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dispatch-btn { background: #7c3aed; }
+.share-request-btn { background: #0f766e; }
+.dispatch-save { background: #7c3aed; }
+
+.quick-executors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.quick-executors button {
+  margin: 0;
+  padding: 9px 6px;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+  font-size: 13px;
+}
+
+.resident-category {
+  margin-top: 6px;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dispatch-inbox-btn {
+  background: #7c3aed;
+  grid-column: 1 / -1;
+}
+
+.management-actions {
+  grid-template-columns: repeat(3, 1fr);
+}
