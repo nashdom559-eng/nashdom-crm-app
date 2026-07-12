@@ -14,7 +14,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.11 · быстрый ввод заявки</div>
+        <div class="subtitle">PWA v0.12 · голосовой ввод</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -43,7 +43,11 @@
         <div id="contactSuggestions" class="contact-suggestions"></div>
 
         <label>3. Заявка</label>
-        <textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea>
+        <div class="voice-field">
+          <textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea>
+          <button id="voiceBtn" type="button" class="voice-btn" onclick="toggleVoiceInput()">🎙 Говорить</button>
+        </div>
+        <div id="voiceStatus" class="voice-status"></div>
 
         <label class="emergency-toggle">
           <input id="isEmergency" type="checkbox">
