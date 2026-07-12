@@ -487,3 +487,10 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
     grid-column: 1 / -1;
   }
 }
+
+
+.flat-history-note {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
