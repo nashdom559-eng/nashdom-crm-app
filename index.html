@@ -14,7 +14,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.8 · аварийные заявки</div>
+        <div class="subtitle">PWA v0.9 · редактирование и возобновление</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -152,6 +152,68 @@
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeEmergencyModal()">Отмена</button>
           <button type="button" class="emergency-save" onclick="confirmEmergencyEvent()">Записать</button>
+        </div>
+      </div>
+    </div>
+
+
+    <div id="editModal" class="modal">
+      <div class="modal-box">
+        <h2>✏️ Редактировать заявку</h2>
+
+        <label>Дом</label>
+        <select id="editHouse"></select>
+
+        <label>Квартира</label>
+        <input id="editFlat" type="text">
+
+        <label>Описание</label>
+        <textarea id="editDescription"></textarea>
+
+        <label class="emergency-toggle">
+          <input id="editIsEmergency" type="checkbox">
+          <span>🚨 Аварийная заявка</span>
+        </label>
+
+        <label>ФИО</label>
+        <input id="editName" type="text">
+
+        <label>Телефон</label>
+        <input id="editPhone" type="tel">
+
+        <label>Плановая дата</label>
+        <input id="editPlanDate" type="datetime-local">
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeEditModal()">Отмена</button>
+          <button type="button" class="modal-ok" onclick="confirmEditRequest()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="reopenModal" class="modal">
+      <div class="modal-box">
+        <h2>↩ Возобновить заявку</h2>
+
+        <label>Что обнаружилось после закрытия</label>
+        <textarea id="reopenComment" placeholder="Например: после запуска снова появилась течь"></textarea>
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeReopenModal()">Отмена</button>
+          <button type="button" class="reopen-save" onclick="confirmReopenRequest()">Возобновить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteModal" class="modal">
+      <div class="modal-box">
+        <h2>🗑 Удаление заявки</h2>
+        <p id="deleteRequestText" class="delete-warning"></p>
+        <p class="delete-note">Будут удалены заявка, её хронология и событие календаря.</p>
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeDeleteModal()">Отмена</button>
+          <button type="button" class="delete-confirm" onclick="confirmDeleteRequest()">Удалить</button>
         </div>
       </div>
     </div>
