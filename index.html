@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.15.2 · Екатерининская 98</div>
+        <div class="subtitle">PWA v0.16 · push-уведомления</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -31,7 +31,10 @@
     <section id="viewHome" class="view active">
       <main class="card">
         <h1>Сегодня</h1>
-        <button onclick="loadData()">Обновить</button>
+        <div class="home-action-row">
+          <button onclick="loadData()">Обновить</button>
+          <button id="pushButton" class="push-btn" type="button">🔔 Включить уведомления</button>
+        </div>
         <div id="status" class="status"></div>
         <div id="dashboardStats" class="stats-grid"></div>
         <div id="residentInbox"></div>
@@ -350,6 +353,7 @@
     const API_URL = 'https://script.google.com/macros/s/AKfycbzVrcm54k04A7vSHsUedjAQJ5yVynVeLpXXs4DFNW4d0mT7OpQdwNbUnvGoeI6L3bSrvA/exec';
   </script>
   <script src="app.js"></script>
+  <script type="module" src="firebase-push.js"></script>
 
   <script>
     window.pendingServiceWorker = null;
