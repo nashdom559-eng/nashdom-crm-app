@@ -15,11 +15,15 @@
 </head>
 
 <body>
+  <div id="updateBanner" class="update-banner">
+    <span>🔄 Доступна новая версия</span>
+    <button type="button" onclick="applyAppUpdate()">Обновить</button>
+  </div>
   <div class="app">
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.13 · дома и квартиры</div>
+        <div class="subtitle">PWA v0.14 · отчёты по домам</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -107,6 +111,53 @@
         <h1>Дома</h1>
         <label>Выберите дом</label>
         <select id="houseCardSelect" onchange="renderHouseCard()"></select>
+
+        <div id="houseReportControls" class="report-controls" hidden>
+          <h2>Отчёт по заявкам</h2>
+
+          <div class="report-grid">
+            <div>
+              <label>Период</label>
+              <select id="reportPeriod" onchange="applyReportPeriod()">
+                <option value="all">За всё время</option>
+                <option value="month" selected>Текущий месяц</option>
+                <option value="previousMonth">Прошлый месяц</option>
+                <option value="custom">Произвольный период</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Статус</label>
+              <select id="reportStatus" onchange="renderHouseRequests()">
+                <option value="all">Все заявки</option>
+                <option value="active">Активные</option>
+                <option value="waiting">Ожидают</option>
+                <option value="done">Выполненные</option>
+                <option value="emergency">Аварийные</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="report-grid">
+            <div>
+              <label>С даты</label>
+              <input id="reportDateFrom" type="date" onchange="renderHouseRequests()">
+            </div>
+            <div>
+              <label>По дату</label>
+              <input id="reportDateTo" type="date" onchange="renderHouseRequests()">
+            </div>
+          </div>
+
+          <label>Квартира</label>
+          <input id="reportFlatFilter" type="text" placeholder="Все квартиры" oninput="renderHouseRequests()">
+
+          <div class="report-actions">
+            <button type="button" class="share-report-btn" onclick="shareHouseReport()">📤 Поделиться</button>
+            <button type="button" class="print-report-btn" onclick="printHouseReport()">🖨 Печать / PDF</button>
+          </div>
+        </div>
+
         <div id="houseCard" class="house-card-wrap"></div>
         <div id="flatCard" class="flat-card-wrap"></div>
       </main>
@@ -268,9 +319,50 @@
   <script src="app.js"></script>
 
   <script>
+    window.pendingServiceWorker = null;
+
+    function showUpdateBanner(worker) {
+      window.pendingServiceWorker = worker;
+      const banner = document.getElementById('updateBanner');
+      if (banner) banner.classList.add('visible');
+    }
+
+    function applyAppUpdate() {
+      if (window.pendingServiceWorker) {
+        window.pendingServiceWorker.postMessage({ type: 'SKIP_WAITING' });
+      } else {
+        location.reload();
+      }
+    }
+
     if ('serviceWorker' in navigator) {
+      let refreshing = false;
+
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (refreshing) return;
+        refreshing = true;
+        location.reload();
+      });
+
       window.addEventListener('load', function() {
         navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+          .then(function(registration) {
+            if (registration.waiting) showUpdateBanner(registration.waiting);
+
+            registration.addEventListener('updatefound', function() {
+              const worker = registration.installing;
+              if (!worker) return;
+
+              worker.addEventListener('statechange', function() {
+                if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                  showUpdateBanner(worker);
+                }
+              });
+            });
+
+            registration.update();
+            setInterval(function() { registration.update(); }, 30 * 60 * 1000);
+          })
           .catch(function(error) {
             console.error('Service worker registration failed:', error);
           });
