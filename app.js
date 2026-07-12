@@ -1579,3 +1579,172 @@ function setVoiceStatus(text, isError) {
 
 document.addEventListener('DOMContentLoaded', setupVoiceInput);
 
+
+
+function setupHousesView() {
+  const select = document.getElementById('houseCardSelect');
+  if (!select || typeof appData === 'undefined') return;
+  const houses = Array.isArray(appData.houses) ? appData.houses : [];
+  const current = select.value;
+  select.innerHTML = '<option value="">— Выберите дом —</option>' +
+    houses.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+  if (current && houses.includes(current)) select.value = current;
+}
+
+function houseRequestDone(r) {
+  const s = String(r.status || '').toLowerCase();
+  return s.includes('выполн') || s.includes('закрыт');
+}
+
+function houseRequestWaiting(r) {
+  return String(r.status || '').toLowerCase().includes('ожид');
+}
+
+function houseRequestEmergency(r) {
+  return Boolean(r.isEmergency) ||
+    String(r.priority || '').toLowerCase().includes('авар') ||
+    Boolean(String(r.emergencyStage || '').trim());
+}
+
+function crmDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString('ru-RU', {
+    day:'2-digit', month:'2-digit', year:'numeric',
+    hour:'2-digit', minute:'2-digit'
+  });
+}
+
+function jsArg(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function renderHouseRequestItem(r) {
+  const comment = r.comment || r.doneComment || r.executionComment || '';
+  return `
+    <div class="house-request-item">
+      <div class="house-request-head">
+        <strong>кв. ${escapeHtml(r.flat || '—')}</strong>
+        <span>${escapeHtml(crmDate(r.date || r.createdAt || ''))}</span>
+      </div>
+      <div class="house-request-text">${escapeHtml(r.description || '')}</div>
+      <div class="house-request-foot">
+        <span class="house-status">${escapeHtml(r.status || 'Принято')}</span>
+        ${comment ? `<span>${escapeHtml(comment)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderHouseCard() {
+  const select = document.getElementById('houseCardSelect');
+  const box = document.getElementById('houseCard');
+  const flatBox = document.getElementById('flatCard');
+  if (!select || !box || !flatBox || typeof appData === 'undefined') return;
+
+  const house = select.value;
+  flatBox.innerHTML = '';
+  if (!house) { box.innerHTML = ''; return; }
+
+  const requests = (appData.allRequests || []).filter(r => String(r.house || '') === house);
+  const active = requests.filter(r => !houseRequestDone(r) && !houseRequestWaiting(r));
+  const waiting = requests.filter(houseRequestWaiting);
+  const done = requests.filter(houseRequestDone);
+  const emergency = requests.filter(r => houseRequestEmergency(r) && !houseRequestDone(r));
+
+  const contactFlats = (appData.contacts || [])
+    .filter(c => String(c.house || '') === house)
+    .map(c => String(c.flat || '').trim());
+  const requestFlats = requests.map(r => String(r.flat || '').trim());
+  const flats = [...new Set([...contactFlats, ...requestFlats].filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, 'ru', {numeric:true}));
+
+  box.innerHTML = `
+    <div class="house-title">${escapeHtml(house)}</div>
+    <div class="house-stats">
+      <div><strong>${requests.length}</strong><span>Всего</span></div>
+      <div><strong>${active.length}</strong><span>Активные</span></div>
+      <div><strong>${waiting.length}</strong><span>Ожидают</span></div>
+      <div><strong>${done.length}</strong><span>Выполнено</span></div>
+    </div>
+    ${emergency.length ? `<div class="house-emergency">🚨 Текущих аварий: <strong>${emergency.length}</strong></div>` : ''}
+    <label>Квартира</label>
+    <select id="houseFlatSelect" onchange="renderFlatCard()">
+      <option value="">— Выберите квартиру —</option>
+      ${flats.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('')}
+    </select>
+    <h2 class="house-section-title">Заявки по дому</h2>
+    <div class="house-request-list">
+      ${requests.length ? requests.slice().reverse().map(renderHouseRequestItem).join('') :
+        '<div class="empty-note">По этому дому заявок пока нет.</div>'}
+    </div>`;
+}
+
+function renderFlatCard() {
+  const houseSelect = document.getElementById('houseCardSelect');
+  const flatSelect = document.getElementById('houseFlatSelect');
+  const box = document.getElementById('flatCard');
+  if (!houseSelect || !flatSelect || !box || typeof appData === 'undefined') return;
+
+  const house = houseSelect.value;
+  const flat = flatSelect.value;
+  if (!flat) { box.innerHTML = ''; return; }
+
+  const contacts = (appData.contacts || []).filter(c =>
+    String(c.house || '') === house && String(c.flat || '') === flat);
+  const requests = (appData.allRequests || []).filter(r =>
+    String(r.house || '') === house && String(r.flat || '') === flat);
+  const active = requests.filter(r => !houseRequestDone(r));
+
+  box.innerHTML = `
+    <div class="flat-card">
+      <div class="flat-card-title">${escapeHtml(house)}, кв. ${escapeHtml(flat)}</div>
+      <h3>Жильцы / контакты</h3>
+      <div class="flat-contacts">
+        ${contacts.length ? contacts.map(c => `
+          <div class="flat-contact">
+            <strong>${escapeHtml(c.name || c.fio || 'Без имени')}</strong>
+            ${c.phone ? `<a href="tel:${phoneForCall(c.phone)}">${escapeHtml(c.phone)}</a>` : ''}
+          </div>`).join('') : '<div class="empty-note">Контактов нет.</div>'}
+      </div>
+      <button type="button" class="flat-new-btn"
+        onclick="createRequestForFlat('${jsArg(house)}','${jsArg(flat)}')">
+        ➕ Создать заявку в эту квартиру
+      </button>
+      <h3>Активные заявки</h3>
+      <div class="house-request-list">
+        ${active.length ? active.slice().reverse().map(renderHouseRequestItem).join('') :
+          '<div class="empty-note">Активных заявок нет.</div>'}
+      </div>
+      <h3>История квартиры</h3>
+      <div class="house-request-list">
+        ${requests.length ? requests.slice().reverse().map(renderHouseRequestItem).join('') :
+          '<div class="empty-note">Истории пока нет.</div>'}
+      </div>
+    </div>`;
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function createRequestForFlat(house, flat) {
+  showView('new');
+  setTimeout(() => {
+    const h = document.getElementById('house');
+    const f = document.getElementById('flat');
+    const d = document.getElementById('description');
+    if (h) { h.value = house; h.dispatchEvent(new Event('change', {bubbles:true})); }
+    if (f) { f.value = flat; f.dispatchEvent(new Event('input', {bubbles:true})); }
+    setTimeout(() => { if (d) d.focus(); }, 180);
+  }, 80);
+}
+
+document.addEventListener('DOMContentLoaded', setupHousesView);
+
+document.addEventListener('click', function(event) {
+  const button = event.target.closest('.bottom-nav button[data-view="houses"]');
+  if (button) {
+    setTimeout(function() {
+      setupHousesView();
+      renderHouseCard();
+    }, 50);
+  }
+});
