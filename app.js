@@ -1455,3 +1455,127 @@ function escapeJs(text) {
 }
 
 document.addEventListener('DOMContentLoaded', setupFastRequestFlow);
+
+
+let voiceRecognition = null;
+let voiceListening = false;
+let voiceBaseText = '';
+
+function getSpeechRecognitionClass() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function setupVoiceInput() {
+  const Recognition = getSpeechRecognitionClass();
+  const button = document.getElementById('voiceBtn');
+
+  if (!button) return;
+
+  if (!Recognition) {
+    button.disabled = true;
+    button.textContent = '🎙 Голос недоступен';
+    setVoiceStatus('На этом устройстве браузерный голосовой ввод не поддерживается.', true);
+    return;
+  }
+
+  voiceRecognition = new Recognition();
+  voiceRecognition.lang = 'ru-RU';
+  voiceRecognition.interimResults = true;
+  voiceRecognition.continuous = false;
+  voiceRecognition.maxAlternatives = 1;
+
+  voiceRecognition.onstart = function() {
+    voiceListening = true;
+    updateVoiceButton();
+    setVoiceStatus('Слушаю… говори заявку.');
+  };
+
+  voiceRecognition.onresult = function(event) {
+    let finalText = '';
+    let interimText = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0].transcript;
+
+      if (event.results[i].isFinal) {
+        finalText += text;
+      } else {
+        interimText += text;
+      }
+    }
+
+    const description = document.getElementById('description');
+    if (!description) return;
+
+    const spokenText = (finalText || interimText).trim();
+    const separator = voiceBaseText && spokenText ? ' ' : '';
+    description.value = voiceBaseText + separator + spokenText;
+  };
+
+  voiceRecognition.onerror = function(event) {
+    voiceListening = false;
+    updateVoiceButton();
+
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      setVoiceStatus('Нет доступа к микрофону. Разреши микрофон для приложения.', true);
+    } else if (event.error === 'no-speech') {
+      setVoiceStatus('Речь не услышал. Нажми микрофон и попробуй ещё раз.', true);
+    } else {
+      setVoiceStatus('Ошибка голосового ввода: ' + event.error, true);
+    }
+  };
+
+  voiceRecognition.onend = function() {
+    voiceListening = false;
+    updateVoiceButton();
+
+    const description = document.getElementById('description');
+    if (description && description.value.trim()) {
+      setVoiceStatus('Готово. Текст можно поправить вручную.');
+    } else {
+      setVoiceStatus('');
+    }
+  };
+}
+
+function toggleVoiceInput() {
+  if (!voiceRecognition) {
+    setupVoiceInput();
+  }
+
+  if (!voiceRecognition) return;
+
+  if (voiceListening) {
+    voiceRecognition.stop();
+    return;
+  }
+
+  const description = document.getElementById('description');
+  voiceBaseText = description ? description.value.trim() : '';
+
+  try {
+    voiceRecognition.start();
+  } catch (error) {
+    setVoiceStatus('Микрофон уже запускается. Попробуй ещё раз через секунду.', true);
+  }
+}
+
+function updateVoiceButton() {
+  const button = document.getElementById('voiceBtn');
+  if (!button) return;
+
+  button.classList.toggle('listening', voiceListening);
+  button.textContent = voiceListening ? '⏹ Остановить' : '🎙 Говорить';
+}
+
+function setVoiceStatus(text, isError) {
+  const box = document.getElementById('voiceStatus');
+  if (!box) return;
+
+  box.textContent = text || '';
+  box.classList.toggle('error', Boolean(isError));
+  box.style.display = text ? 'block' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', setupVoiceInput);
+
