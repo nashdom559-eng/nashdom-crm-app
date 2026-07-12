@@ -14,7 +14,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.10 · контакты и история квартиры</div>
+        <div class="subtitle">PWA v0.11 · быстрый ввод заявки</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -37,13 +37,13 @@
         <select id="house"></select>
 
         <label>2. Квартира</label>
-        <input id="flat" type="text" placeholder="Например: 63">
+        <input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
 
         <div id="flatHistory" class="flat-history"></div>
         <div id="contactSuggestions" class="contact-suggestions"></div>
 
         <label>3. Заявка</label>
-        <textarea id="description" placeholder="Например: течёт стояк"></textarea>
+        <textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea>
 
         <label class="emergency-toggle">
           <input id="isEmergency" type="checkbox">
