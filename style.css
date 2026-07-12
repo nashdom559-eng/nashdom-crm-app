@@ -566,3 +566,40 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
   .bottom-nav button span:last-child { font-size:10px; }
   .house-stats { grid-template-columns:repeat(2,1fr); }
 }
+
+
+/* v0.14 — отчёты и автоматическое обновление */
+.update-banner {
+  display:none; position:fixed; left:12px; right:12px; top:10px;
+  max-width:616px; margin:0 auto; padding:10px 12px; border-radius:14px;
+  background:#111827; color:white; z-index:1000;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+  align-items:center; justify-content:space-between; gap:10px;
+}
+.update-banner.visible { display:flex; }
+.update-banner span { font-size:14px; font-weight:800; }
+.update-banner button {
+  width:auto; margin:0; padding:8px 12px; font-size:13px;
+  border-radius:10px; background:#22c55e;
+}
+.report-controls {
+  margin-top:14px; padding:12px; border:1px solid #bfdbfe;
+  border-radius:14px; background:#eff6ff;
+}
+.report-controls[hidden] { display:none; }
+.report-controls h2 { margin:0 0 4px; font-size:18px; }
+.report-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.report-actions {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;
+}
+.report-actions button { margin:0; }
+.share-report-btn { background:#0f766e; }
+.print-report-btn { background:#475569; }
+.report-summary {
+  margin:0 0 10px; padding:9px 10px; border-radius:10px;
+  background:#f3f4f6; color:#475569; font-size:12px; line-height:1.45;
+}
+@media (max-width:430px) {
+  .report-grid { grid-template-columns:1fr; gap:0; }
+  .report-actions { grid-template-columns:1fr; }
+}
