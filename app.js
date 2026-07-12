@@ -35,6 +35,7 @@ const CRM = {
     currentEditRowNumber: null,
     currentReopenRowNumber: null,
     currentDeleteRowNumber: null,
+    currentDispatchRowNumber: null,
     journalFilter: 'all'
   }
 };
@@ -134,6 +135,7 @@ function loadData() {
       fillEditHouseSelect();
       setupHousesView();
       renderDashboard();
+      renderResidentInbox();
       renderAcceptedRequests();
       runSearch();
 
@@ -578,6 +580,14 @@ function renderRequestCard(req, showActions) {
 
       ${plan}
 
+      ${req.priority
+        ? '<div class="request-assignment">🔧 ' + escapeHtml(req.priority) + '</div>'
+        : ''}
+
+      ${req.executor
+        ? '<div class="request-assignment">👷 ' + escapeHtml(req.executor) + '</div>'
+        : ''}
+
       <div class="request-desc">
         ${escapeHtml(req.description)}
       </div>
@@ -608,10 +618,24 @@ function renderManagementActions(req) {
     </button>
   `;
 
+  const dispatchButton = `
+    <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">
+      👷 Исполнитель
+    </button>
+  `;
+
+  const shareButton = `
+    <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">
+      📤 Поделиться
+    </button>
+  `;
+
   if (req.status === 'Выполнено') {
     return `
       <div class="management-actions">
         ${editButton}
+        ${dispatchButton}
+        ${shareButton}
         <button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">
           ↩ Возобновить
         </button>
@@ -625,6 +649,8 @@ function renderManagementActions(req) {
   return `
     <div class="management-actions">
       ${editButton}
+      ${dispatchButton}
+      ${shareButton}
     </div>
   `;
 }
@@ -2078,4 +2104,200 @@ function printHouseReport() {
   win.document.close();
   win.focus();
   setTimeout(() => win.print(), 300);
+}
+
+
+/* ===== v0.15: входящие заявки жителей ===== */
+
+function renderResidentInbox() {
+  const box = document.getElementById('residentInbox');
+  if (!box || !CRM || !CRM.data) return;
+
+  const items = CRM.data.residentRequests || [];
+
+  if (!items.length) {
+    box.innerHTML = '';
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="resident-inbox">
+      <div class="resident-inbox-title">📨 Новые от жителей <span>${items.length}</span></div>
+      <div class="resident-inbox-list">
+        ${items.map(req => `
+          <div class="resident-request-card">
+            <div class="resident-request-top">
+              <strong>${escapeHtml(req.house || '')}, кв. ${escapeHtml(req.flat || '—')}</strong>
+              ${req.isEmergency ? '<span class="resident-emergency">🚨 Житель отметил как аварийную</span>' : ''}
+            </div>
+            ${req.priority ? `<div class="resident-category">🔧 ${escapeHtml(req.priority)}</div>` : ''}
+            <div class="resident-person">${escapeHtml(req.name || '')}</div>
+            ${req.phone ? `<a class="phone-link" href="tel:${phoneForCall(req.phone)}">${escapeHtml(req.phone)}</a>` : ''}
+            <div class="resident-description">${escapeHtml(req.description || '')}</div>
+            <div class="resident-actions">
+              <button type="button" onclick="acceptResidentRequestUi(${Number(req.rowNumber)}, false)">✅ Принять</button>
+              <button type="button" class="resident-emergency-btn" onclick="acceptResidentRequestUi(${Number(req.rowNumber)}, true)">🚨 Как аварийную</button>
+              <button type="button" class="dispatch-inbox-btn" onclick="acceptAndDispatchResident(${Number(req.rowNumber)})">👷 Принять и передать</button>
+              <button type="button" class="resident-reject-btn" onclick="rejectResidentRequestUi(${Number(req.rowNumber)})">Отклонить</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function acceptResidentRequestUi(rowNumber, makeEmergency) {
+  apiCall(
+    'acceptResidentRequest',
+    { rowNumber: rowNumber, makeEmergency: makeEmergency },
+    function() {
+      loadData();
+    },
+    function(error) {
+      alert(error);
+    }
+  );
+}
+
+function rejectResidentRequestUi(rowNumber) {
+  if (!confirm('Отклонить заявку жителя?')) return;
+
+  apiCall(
+    'rejectResidentRequest',
+    { rowNumber: rowNumber },
+    function() {
+      loadData();
+    },
+    function(error) {
+      alert(error);
+    }
+  );
+}
+
+function acceptAndDispatchResident(rowNumber) {
+  apiCall(
+    'acceptResidentRequest',
+    { rowNumber: rowNumber, makeEmergency: false },
+    function() {
+      loadData();
+      setTimeout(function() {
+        openDispatchModal(rowNumber);
+      }, 300);
+    },
+    function(error) {
+      alert(error);
+    }
+  );
+}
+
+function openDispatchModal(rowNumber) {
+  const req = findRequestByRow(rowNumber);
+  CRM.state.currentDispatchRowNumber = rowNumber;
+
+  setValue('dispatchCategory', req && req.priority ? req.priority : 'Сантехника');
+  setValue('dispatchExecutor', req && req.executor ? req.executor : '');
+
+  const modal = document.getElementById('dispatchModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeDispatchModal() {
+  CRM.state.currentDispatchRowNumber = null;
+
+  const modal = document.getElementById('dispatchModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function setDispatchExecutor(value) {
+  setValue('dispatchExecutor', value);
+}
+
+function confirmDispatchRequest() {
+  const rowNumber = CRM.state.currentDispatchRowNumber;
+  if (!rowNumber) return;
+
+  const category = getValue('dispatchCategory');
+  const executor = getValue('dispatchExecutor');
+
+  if (!executor) {
+    alert('Укажи исполнителя');
+    return;
+  }
+
+  apiCall(
+    'dispatchRequest',
+    {
+      rowNumber: rowNumber,
+      category: category,
+      executor: executor
+    },
+    function(result) {
+      closeDispatchModal();
+      showStatus(result.message || 'Заявка передана');
+      loadData();
+
+      setTimeout(function() {
+        shareRequest(rowNumber);
+      }, 300);
+    },
+    function(error) {
+      alert(error);
+    }
+  );
+}
+
+function buildRequestShareText(req) {
+  const lines = [
+    'ЗАЯВКА ' + (req.id || ''),
+    'Дом: ' + (req.house || ''),
+    req.flat ? 'Квартира: ' + req.flat : '',
+    req.name ? 'Контакт: ' + req.name : '',
+    req.phone ? 'Телефон: ' + req.phone : '',
+    req.priority ? 'Категория: ' + req.priority : '',
+    req.executor ? 'Исполнитель: ' + req.executor : '',
+    '',
+    req.description || ''
+  ];
+
+  return lines.filter(function(line, index) {
+    return line !== '' || index === lines.length - 2;
+  }).join('\n').trim();
+}
+
+function shareRequest(rowNumber) {
+  const req = findRequestByRow(rowNumber);
+  if (!req) {
+    alert('Заявка не найдена');
+    return;
+  }
+
+  const text = buildRequestShareText(req);
+
+  if (navigator.share) {
+    navigator.share({
+      title: 'Заявка ' + (req.id || ''),
+      text: text
+    }).catch(function(error) {
+      if (error && error.name !== 'AbortError') {
+        fallbackCopyRequest(text);
+      }
+    });
+    return;
+  }
+
+  fallbackCopyRequest(text);
+}
+
+function fallbackCopyRequest(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(function() {
+        alert('Текст заявки скопирован');
+      })
+      .catch(function() {
+        prompt('Скопируй заявку:', text);
+      });
+  } else {
+    prompt('Скопируй заявку:', text);
+  }
 }
