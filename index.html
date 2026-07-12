@@ -14,7 +14,8 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.7</div>
+        <div class="subtitle">PWA v0.8 · аварийные заявки</div>
+        <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
 
@@ -42,7 +43,12 @@
         <div id="contactSuggestions" class="contact-suggestions"></div>
 
         <label>3. Заявка</label>
-        <textarea id="description" placeholder="Например: течет стояк"></textarea>
+        <textarea id="description" placeholder="Например: течёт стояк"></textarea>
+
+        <label class="emergency-toggle">
+          <input id="isEmergency" type="checkbox">
+          <span>🚨 Аварийная заявка</span>
+        </label>
 
         <label>4. ФИО / как обращаться</label>
         <input id="name" type="text" placeholder="Например: Иванов Сергей">
@@ -89,10 +95,8 @@
     <div id="doneModal" class="modal">
       <div class="modal-box">
         <h2>Выполнение заявки</h2>
-
         <label>Комментарий по выполнению</label>
         <textarea id="doneComment" placeholder="Например: заменили прокладку, течь устранена"></textarea>
-
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeDoneModal()">Отмена</button>
           <button type="button" class="modal-ok" onclick="confirmDoneRequest()">Выполнить</button>
@@ -103,10 +107,8 @@
     <div id="planModal" class="modal">
       <div class="modal-box">
         <h2>Назначить визит</h2>
-
         <label>Дата и время</label>
         <input id="planModalDate" type="datetime-local">
-
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closePlanModal()">Отмена</button>
           <button type="button" class="modal-ok" onclick="confirmPlanRequest()">Сохранить</button>
@@ -117,19 +119,39 @@
     <div id="holdModal" class="modal">
       <div class="modal-box">
         <h2>Ожидание / следующее действие</h2>
-
         <label>Причина ожидания</label>
         <textarea id="holdComment" placeholder="Например: ждём согласование ТСЖ"></textarea>
-
         <label>Следующее действие</label>
         <input id="holdAction" type="text" placeholder="Например: купить радиаторные краны">
-
         <label>Напомнить</label>
         <input id="holdReminder" type="datetime-local">
-
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeHoldModal()">Отмена</button>
           <button type="button" class="modal-ok" onclick="confirmHoldRequest()">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="emergencyModal" class="modal">
+      <div class="modal-box">
+        <h2>🚨 Этап аварии</h2>
+
+        <label>Что произошло</label>
+        <select id="emergencyStage">
+          <option value="ARRIVED">Прибыл на место</option>
+          <option value="SHUTOFF">Стояк / система перекрыты</option>
+          <option value="WAITING_ACCESS">Ожидаем доступ</option>
+          <option value="FOUND">Причина найдена / работы выполнены</option>
+          <option value="RESTORED">Вода / система открыты</option>
+          <option value="CLOSED">Авария закрыта</option>
+        </select>
+
+        <label>Комментарий</label>
+        <textarea id="emergencyComment" placeholder="Например: перекрыт стояк ХВС, ждём доступ в кв. 31"></textarea>
+
+        <div class="modal-actions">
+          <button type="button" class="modal-cancel" onclick="closeEmergencyModal()">Отмена</button>
+          <button type="button" class="emergency-save" onclick="confirmEmergencyEvent()">Записать</button>
         </div>
       </div>
     </div>
@@ -139,17 +161,14 @@
         <span class="nav-icon">🏠</span>
         <span>Сегодня</span>
       </button>
-
       <button data-view="new" onclick="showView('new')">
         <span class="nav-icon">➕</span>
         <span>Новая</span>
       </button>
-
       <button data-view="accepted" onclick="showView('accepted')">
         <span class="nav-icon">📋</span>
         <span>Активные</span>
       </button>
-
       <button data-view="search" onclick="showView('search')">
         <span class="nav-icon">🔍</span>
         <span>Журнал</span>
