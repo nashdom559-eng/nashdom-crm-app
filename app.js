@@ -1749,3 +1749,333 @@ document.addEventListener('click', function(event) {
     }, 50);
   }
 });
+
+/* ===== v0.14: даты, отчёты по домам ===== */
+
+function parseHouseDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+
+  const text = String(value).trim();
+  const match = text.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2}))?/);
+
+  if (match) {
+    let year = Number(match[3]);
+    if (year < 100) year += 2000;
+    const date = new Date(
+      year,
+      Number(match[2]) - 1,
+      Number(match[1]),
+      Number(match[4] || 0),
+      Number(match[5] || 0)
+    );
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(text);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function requestHouseDate(req) {
+  return parseHouseDate(req.rawDate || req.createdAt || req.date || '');
+}
+
+function shortHouseDate(value) {
+  const date = parseHouseDate(value);
+  if (!date) return String(value || '');
+  return [
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getFullYear()).slice(-2)
+  ].join('.');
+}
+
+function requestShortHouseDate(req) {
+  const date = requestHouseDate(req);
+  return date ? shortHouseDate(date) : shortHouseDate(req.date || '');
+}
+
+function fullReportDate(value) {
+  const date = parseHouseDate(value);
+  if (!date) return '';
+  return [
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    date.getFullYear()
+  ].join('.');
+}
+
+function dateInputValue(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+}
+
+function renderHouseRequestItem(req) {
+  const comment = req.comment || req.doneComment || req.executionComment || '';
+
+  return `
+    <div class="house-request-item">
+      <div class="house-request-head">
+        <strong>кв. ${escapeHtml(req.flat || '—')}</strong>
+        <span>${escapeHtml(requestShortHouseDate(req))}</span>
+      </div>
+      <div class="house-request-text">${escapeHtml(req.description || '')}</div>
+      <div class="house-request-foot">
+        <span class="house-status">${escapeHtml(req.status || 'Принято')}</span>
+        ${comment ? `<span>${escapeHtml(comment)}</span>` : ''}
+      </div>
+    </div>`;
+}
+
+function applyReportPeriod() {
+  const period = getValue('reportPeriod');
+  const from = document.getElementById('reportDateFrom');
+  const to = document.getElementById('reportDateTo');
+  if (!from || !to) return;
+
+  const today = new Date();
+
+  if (period === 'all') {
+    from.value = '';
+    to.value = '';
+  } else if (period === 'month') {
+    from.value = dateInputValue(new Date(today.getFullYear(), today.getMonth(), 1));
+    to.value = dateInputValue(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+  } else if (period === 'previousMonth') {
+    from.value = dateInputValue(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+    to.value = dateInputValue(new Date(today.getFullYear(), today.getMonth(), 0));
+  }
+
+  renderHouseRequests();
+}
+
+function filteredHouseRequests() {
+  const house = getValue('houseCardSelect');
+  const status = getValue('reportStatus') || 'all';
+  const flat = getValue('reportFlatFilter').toLowerCase();
+  const fromText = getValue('reportDateFrom');
+  const toText = getValue('reportDateTo');
+
+  const from = fromText ? new Date(fromText + 'T00:00:00') : null;
+  const to = toText ? new Date(toText + 'T23:59:59') : null;
+
+  return (CRM.data.allRequests || [])
+    .filter(req => String(req.house || '') === house)
+    .filter(req => {
+      if (status === 'active') return !houseRequestDone(req) && !houseRequestWaiting(req);
+      if (status === 'waiting') return houseRequestWaiting(req);
+      if (status === 'done') return houseRequestDone(req);
+      if (status === 'emergency') return houseRequestEmergency(req);
+      return true;
+    })
+    .filter(req => !flat || String(req.flat || '').toLowerCase().includes(flat))
+    .filter(req => {
+      const date = requestHouseDate(req);
+      if (!date) return !from && !to;
+      if (from && date < from) return false;
+      if (to && date > to) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const ad = requestHouseDate(a);
+      const bd = requestHouseDate(b);
+      return (bd ? bd.getTime() : 0) - (ad ? ad.getTime() : 0);
+    });
+}
+
+function renderHouseRequests() {
+  const list = document.getElementById('houseRequestsList');
+  const summary = document.getElementById('houseRequestsSummary');
+  if (!list || !summary) return;
+
+  const requests = filteredHouseRequests();
+  const active = requests.filter(req => !houseRequestDone(req) && !houseRequestWaiting(req)).length;
+  const waiting = requests.filter(houseRequestWaiting).length;
+  const done = requests.filter(houseRequestDone).length;
+  const emergency = requests.filter(houseRequestEmergency).length;
+
+  summary.innerHTML =
+    `Показано: <strong>${requests.length}</strong> · ` +
+    `активных: <strong>${active}</strong> · ` +
+    `ожидают: <strong>${waiting}</strong> · ` +
+    `выполнено: <strong>${done}</strong>` +
+    (emergency ? ` · аварийных: <strong>${emergency}</strong>` : '');
+
+  list.innerHTML = requests.length
+    ? requests.map(renderHouseRequestItem).join('')
+    : '<div class="empty-note">По выбранным условиям заявок нет.</div>';
+}
+
+function renderHouseCard() {
+  const select = document.getElementById('houseCardSelect');
+  const box = document.getElementById('houseCard');
+  const flatBox = document.getElementById('flatCard');
+  const controls = document.getElementById('houseReportControls');
+
+  if (!select || !box || !flatBox || !controls || !CRM || !CRM.data) return;
+
+  const house = select.value;
+  flatBox.innerHTML = '';
+
+  if (!house) {
+    box.innerHTML = '';
+    controls.hidden = true;
+    return;
+  }
+
+  controls.hidden = false;
+
+  const requests = (CRM.data.allRequests || []).filter(req => String(req.house || '') === house);
+  const active = requests.filter(req => !houseRequestDone(req) && !houseRequestWaiting(req));
+  const waiting = requests.filter(houseRequestWaiting);
+  const done = requests.filter(houseRequestDone);
+  const emergency = requests.filter(req => houseRequestEmergency(req) && !houseRequestDone(req));
+
+  const contactFlats = (CRM.data.contacts || [])
+    .filter(c => String(c.house || '') === house)
+    .map(c => String(c.flat || '').trim());
+  const requestFlats = requests.map(r => String(r.flat || '').trim());
+  const flats = [...new Set([...contactFlats, ...requestFlats].filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ru', { numeric: true }));
+
+  box.innerHTML = `
+    <div class="house-title">${escapeHtml(house)}</div>
+    <div class="house-stats">
+      <div><strong>${requests.length}</strong><span>Всего</span></div>
+      <div><strong>${active.length}</strong><span>Активные</span></div>
+      <div><strong>${waiting.length}</strong><span>Ожидают</span></div>
+      <div><strong>${done.length}</strong><span>Выполнено</span></div>
+    </div>
+    ${emergency.length ? `<div class="house-emergency">🚨 Текущих аварий: <strong>${emergency.length}</strong></div>` : ''}
+    <label>Карточка квартиры</label>
+    <select id="houseFlatSelect" onchange="renderFlatCard()">
+      <option value="">— Выберите квартиру —</option>
+      ${flats.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('')}
+    </select>
+    <h2 class="house-section-title">Заявки по дому</h2>
+    <div id="houseRequestsSummary" class="report-summary"></div>
+    <div id="houseRequestsList" class="house-request-list"></div>`;
+
+  if (!getValue('reportDateFrom') && !getValue('reportDateTo')) {
+    applyReportPeriod();
+  } else {
+    renderHouseRequests();
+  }
+}
+
+function reportPeriodText() {
+  const from = getValue('reportDateFrom');
+  const to = getValue('reportDateTo');
+  if (!from && !to) return 'за всё время';
+  if (from && to) return fullReportDate(from) + '–' + fullReportDate(to);
+  if (from) return 'с ' + fullReportDate(from);
+  return 'по ' + fullReportDate(to);
+}
+
+function houseReportText() {
+  const house = getValue('houseCardSelect');
+  const requests = filteredHouseRequests();
+
+  const active = requests.filter(req => !houseRequestDone(req) && !houseRequestWaiting(req)).length;
+  const waiting = requests.filter(houseRequestWaiting).length;
+  const done = requests.filter(houseRequestDone).length;
+  const emergency = requests.filter(houseRequestEmergency).length;
+
+  const lines = [
+    'ОТЧЁТ ПО ЗАЯВКАМ',
+    house,
+    'Период: ' + reportPeriodText(),
+    '',
+    'Всего: ' + requests.length,
+    'Активные: ' + active,
+    'Ожидают: ' + waiting,
+    'Выполнено: ' + done,
+    'Аварийные: ' + emergency,
+    ''
+  ];
+
+  requests.forEach((req, index) => {
+    const comment = req.comment || req.doneComment || req.executionComment || '';
+    lines.push(`${index + 1}. ${requestShortHouseDate(req)} · кв. ${req.flat || '—'} · ${req.status || 'Принято'}`);
+    lines.push(String(req.description || ''));
+    if (comment) lines.push('Результат/комментарий: ' + comment);
+    lines.push('');
+  });
+
+  return lines.join('\n').trim();
+}
+
+async function shareHouseReport() {
+  const house = getValue('houseCardSelect');
+  if (!house) return alert('Сначала выбери дом.');
+
+  const text = houseReportText();
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Отчёт по заявкам: ' + house, text });
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('Отчёт скопирован. Его можно вставить в сообщение.');
+  } catch (error) {
+    prompt('Скопируй отчёт:', text);
+  }
+}
+
+function printHouseReport() {
+  const house = getValue('houseCardSelect');
+  if (!house) return alert('Сначала выбери дом.');
+
+  const requests = filteredHouseRequests();
+  const rows = requests.map(req => {
+    const comment = req.comment || req.doneComment || req.executionComment || '';
+    return `<tr>
+      <td>${escapeHtml(requestShortHouseDate(req))}</td>
+      <td>${escapeHtml(req.id || '')}</td>
+      <td>${escapeHtml(req.flat || '—')}</td>
+      <td>${escapeHtml(req.description || '')}</td>
+      <td>${escapeHtml(req.status || 'Принято')}</td>
+      <td>${escapeHtml(comment)}</td>
+    </tr>`;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  if (!win) return alert('Браузер заблокировал окно печати.');
+
+  win.document.write(`<!DOCTYPE html>
+  <html lang="ru"><head><meta charset="UTF-8">
+  <title>Отчёт — ${escapeHtml(house)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:24px;color:#111}
+    h1{font-size:20px;margin:0 0 6px}
+    .period{margin-bottom:18px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th,td{border:1px solid #777;padding:6px;text-align:left;vertical-align:top}
+    th{background:#eee}
+    .footer{margin-top:24px;font-size:11px;color:#555}
+    @page{size:A4 landscape;margin:12mm}
+  </style></head><body>
+  <h1>Отчёт по заявкам: ${escapeHtml(house)}</h1>
+  <div class="period">Период: ${escapeHtml(reportPeriodText())}</div>
+  <table><thead><tr>
+    <th>Дата</th><th>№ заявки</th><th>Квартира</th>
+    <th>Содержание заявки</th><th>Статус</th><th>Результат / комментарий</th>
+  </tr></thead><tbody>
+    ${rows || '<tr><td colspan="6">Заявок нет</td></tr>'}
+  </tbody></table>
+  <div class="footer">Сформировано в «НашДом CRM» ${fullReportDate(new Date())}.</div>
+  </body></html>`);
+
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 300);
+}
