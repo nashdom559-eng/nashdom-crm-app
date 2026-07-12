@@ -31,6 +31,7 @@ const CRM = {
     currentDoneRowNumber: null,
     currentPlanRowNumber: null,
     currentHoldRowNumber: null,
+    currentEmergencyRowNumber: null,
     journalFilter: 'all'
   }
 };
@@ -193,7 +194,8 @@ function saveRequest() {
     description: getValue('description'),
     name: getValue('name'),
     phone: getValue('phone'),
-    planDate: getValue('planDate')
+    planDate: getValue('planDate'),
+    isEmergency: getChecked('isEmergency')
   };
 
   if (!data.house) {
@@ -246,17 +248,25 @@ function renderDashboard() {
   const active = CRM.data.acceptedRequests || [];
   const all = CRM.data.allRequests || [];
 
-  const overdue = active.filter(isOverdue);
+  const emergencies = active.filter(function(req) {
+    return req.isEmergency;
+  });
 
-  const todayPlanned = active.filter(function(req) {
+  const regularActive = active.filter(function(req) {
+    return !req.isEmergency;
+  });
+
+  const overdue = regularActive.filter(isOverdue);
+
+  const todayPlanned = regularActive.filter(function(req) {
     return isTodayPlanned(req) && !isOverdue(req);
   });
 
-  const waiting = active.filter(function(req) {
+  const waiting = regularActive.filter(function(req) {
     return req.status === 'Ожидает';
   });
 
-  const otherActive = active.filter(function(req) {
+  const otherActive = regularActive.filter(function(req) {
     return (
       req.status !== 'Ожидает' &&
       !isOverdue(req) &&
@@ -294,6 +304,10 @@ function renderDashboard() {
   `;
 
   const sections = [
+    {
+      title: '🚨 Текущие аварии',
+      items: sortActiveRequests(emergencies)
+    },
     {
       title: '🔴 Просрочено',
       items: sortActiveRequests(overdue)
@@ -385,6 +399,14 @@ function renderRequestCard(req, showActions) {
       '</div>'
     : '';
 
+  const emergencyBadge = req.isEmergency
+    ? '<div class="emergency-badge">🚨 Аварийная заявка</div>'
+    : '';
+
+  const emergencyTimeline = req.isEmergency
+    ? renderEmergencyTimeline(req.emergencyTimeline || [])
+    : '';
+
   const waitingInfo =
     req.status === 'Ожидает' && req.comment
       ? `
@@ -418,33 +440,63 @@ function renderRequestCard(req, showActions) {
 
   const actions =
     showActions && req.status !== 'Выполнено'
-      ? `
-        <div class="card-actions">
-          <button
-            class="plan-btn"
-            onclick="openPlanModal(
-              ${Number(req.rowNumber)},
-              '${escapeJs(req.rawPlanDate || '')}'
-            )"
-          >
-            ${getPlanButtonText(req)}
-          </button>
+      ? req.isEmergency
+        ? `
+          <div class="emergency-actions">
+            <button
+              class="emergency-btn"
+              onclick="openEmergencyModal(${Number(req.rowNumber)})"
+            >
+              🚨 Записать этап аварии
+            </button>
 
-          <button
-            class="hold-btn"
-            onclick="openHoldModal(${Number(req.rowNumber)})"
-          >
-            ⏳ Ожидает
-          </button>
+            <div class="card-actions two-columns">
+              <button
+                class="plan-btn"
+                onclick="openPlanModal(
+                  ${Number(req.rowNumber)},
+                  '${escapeJs(req.rawPlanDate || '')}'
+                )"
+              >
+                ${getPlanButtonText(req)}
+              </button>
 
-          <button
-            class="small-btn"
-            onclick="openDoneModal(${Number(req.rowNumber)})"
-          >
-            ✓ Выполнено
-          </button>
-        </div>
-      `
+              <button
+                class="hold-btn"
+                onclick="openHoldModal(${Number(req.rowNumber)})"
+              >
+                ⏳ Ожидает
+              </button>
+            </div>
+          </div>
+        `
+        : `
+          <div class="card-actions">
+            <button
+              class="plan-btn"
+              onclick="openPlanModal(
+                ${Number(req.rowNumber)},
+                '${escapeJs(req.rawPlanDate || '')}'
+              )"
+            >
+              ${getPlanButtonText(req)}
+            </button>
+
+            <button
+              class="hold-btn"
+              onclick="openHoldModal(${Number(req.rowNumber)})"
+            >
+              ⏳ Ожидает
+            </button>
+
+            <button
+              class="small-btn"
+              onclick="openDoneModal(${Number(req.rowNumber)})"
+            >
+              ✓ Выполнено
+            </button>
+          </div>
+        `
       : '';
 
   return `
@@ -459,6 +511,7 @@ function renderRequestCard(req, showActions) {
         </div>
       </div>
 
+      ${emergencyBadge}
       ${name}
 
       <div class="request-meta">
@@ -482,6 +535,7 @@ function renderRequestCard(req, showActions) {
       </div>
 
       ${waitingInfo}
+      ${emergencyTimeline}
       ${doneInfo}
       ${actions}
     </div>
@@ -610,6 +664,70 @@ function getJournalTitle() {
   if (filter === 'done') return 'Выполненные заявки';
 
   return 'Все заявки';
+}
+
+
+function renderEmergencyTimeline(events) {
+  if (!events || !events.length) {
+    return '<div class="emergency-timeline empty-timeline">Хронология пока пустая</div>';
+  }
+
+  const visible = events.slice(-8);
+
+  return `
+    <div class="emergency-timeline">
+      <div class="timeline-title">Хронология аварии</div>
+      ${visible.map(function(event) {
+        return `
+          <div class="timeline-item">
+            <div class="timeline-date">${escapeHtml(event.date || '')}</div>
+            <div class="timeline-stage">${escapeHtml(event.stage || '')}</div>
+            ${event.comment
+              ? '<div class="timeline-comment">' + escapeHtml(event.comment) + '</div>'
+              : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function openEmergencyModal(rowNumber) {
+  CRM.state.currentEmergencyRowNumber = rowNumber;
+  setValue('emergencyStage', 'ARRIVED');
+  setValue('emergencyComment', '');
+
+  const modal = document.getElementById('emergencyModal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeEmergencyModal() {
+  CRM.state.currentEmergencyRowNumber = null;
+
+  const modal = document.getElementById('emergencyModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function confirmEmergencyEvent() {
+  const rowNumber = CRM.state.currentEmergencyRowNumber;
+  if (!rowNumber) return;
+
+  apiCall(
+    'addEmergencyEvent',
+    {
+      rowNumber: rowNumber,
+      stage: getValue('emergencyStage'),
+      comment: getValue('emergencyComment')
+    },
+    function(result) {
+      closeEmergencyModal();
+      showStatus(result.message || 'Этап аварии записан');
+      loadData();
+    },
+    function(error) {
+      showStatus('Ошибка: ' + error, true);
+    }
+  );
 }
 
 function openPlanModal(rowNumber, currentValue) {
@@ -894,6 +1012,7 @@ function clearNewRequestForm() {
   setValue('name', '');
   setValue('phone', '');
   setValue('planDate', '');
+  setChecked('isEmergency', false);
 
   hideBox(document.getElementById('flatHistory'));
 
@@ -941,6 +1060,7 @@ function isOverdue(req) {
 }
 
 function getRequestCardClass(req) {
+  if (req.isEmergency) return 'is-emergency';
   if (req.status === 'Ожидает') return 'is-waiting';
   if (isOverdue(req)) return 'is-overdue';
   if (isTodayPlanned(req)) return 'is-today';
@@ -1044,6 +1164,16 @@ function setValue(id, value) {
   const el = document.getElementById(id);
 
   if (el) el.value = value;
+}
+
+function getChecked(id) {
+  const el = document.getElementById(id);
+  return Boolean(el && el.checked);
+}
+
+function setChecked(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.checked = Boolean(value);
 }
 
 function capitalize(text) {
