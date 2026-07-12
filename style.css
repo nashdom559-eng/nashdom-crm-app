@@ -700,3 +700,25 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
 .management-actions {
   grid-template-columns: repeat(3, 1fr);
 }
+
+
+/* v0.16 — push */
+.home-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.home-action-row button {
+  margin-top: 0;
+}
+
+.push-btn {
+  background: #7c3aed;
+}
+
+@media (max-width: 430px) {
+  .home-action-row {
+    grid-template-columns: 1fr;
+  }
+}
