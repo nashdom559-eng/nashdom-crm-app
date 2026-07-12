@@ -722,3 +722,17 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* v0.16.1 — компактный статус push */
+.push-status-icon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 13px;
+  opacity: 0.65;
+  vertical-align: middle;
+}
+
+.push-status-icon.enabled {
+  opacity: 1;
+}
