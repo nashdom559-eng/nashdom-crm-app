@@ -19,7 +19,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.12 · голосовой ввод</div>
+        <div class="subtitle">PWA v0.13 · дома и квартиры</div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -98,6 +98,17 @@
         >
 
         <div id="searchResults" class="requests-list search-results"></div>
+      </main>
+    </section>
+
+
+    <section id="viewHouses" class="view">
+      <main class="card">
+        <h1>Дома</h1>
+        <label>Выберите дом</label>
+        <select id="houseCardSelect" onchange="renderHouseCard()"></select>
+        <div id="houseCard" class="house-card-wrap"></div>
+        <div id="flatCard" class="flat-card-wrap"></div>
       </main>
     </section>
 
@@ -243,6 +254,10 @@
       <button data-view="search" onclick="showView('search')">
         <span class="nav-icon">🔍</span>
         <span>Журнал</span>
+      </button>
+      <button data-view="houses" onclick="showView('houses')">
+        <span class="nav-icon">🏢</span>
+        <span>Дома</span>
       </button>
     </nav>
   </div>
