@@ -1113,8 +1113,11 @@ function updateFlatHistory() {
             </div>
 
             <div>
+              <strong>${escapeHtml(item.status || '')}</strong> ·
               ${escapeHtml(item.description)}
             </div>
+            ${item.comment ? `<div class="flat-history-note">💬 ${escapeHtml(item.comment)}</div>` : ''}
+            ${item.holdComment ? `<div class="flat-history-note">⏳ ${escapeHtml(item.holdComment)}</div>` : ''}
           </div>
         `;
       })
@@ -1383,6 +1386,19 @@ function formatPhone(phone) {
   }
 
   return phone;
+}
+
+
+function phoneForCall(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+
+  if (digits.length === 11 && digits.startsWith('8')) {
+    digits = '7' + digits.slice(1);
+  } else if (digits.length === 10) {
+    digits = '7' + digits;
+  }
+
+  return digits ? '+' + digits : '';
 }
 
 function escapeHtml(text) {
