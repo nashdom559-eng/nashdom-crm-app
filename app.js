@@ -189,6 +189,42 @@ function fillHouseSelect() {
   }
 }
 
+
+function setupFastRequestFlow() {
+  const house = document.getElementById('house');
+  const flat = document.getElementById('flat');
+  const description = document.getElementById('description');
+
+  if (house && !house.dataset.fastFlowReady) {
+    house.dataset.fastFlowReady = '1';
+
+    house.addEventListener('change', function() {
+      window.setTimeout(function() {
+        if (flat) {
+          flat.focus();
+          try {
+            flat.setSelectionRange(flat.value.length, flat.value.length);
+          } catch (e) {}
+        }
+      }, 120);
+    });
+  }
+
+  if (flat && !flat.dataset.fastFlowReady) {
+    flat.dataset.fastFlowReady = '1';
+
+    flat.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+
+        if (description) {
+          description.focus();
+        }
+      }
+    });
+  }
+}
+
 function fillEditHouseSelect() {
   const select = document.getElementById('editHouse');
   if (!select) return;
@@ -1417,3 +1453,5 @@ function escapeJs(text) {
     .replaceAll('\n', '\\n')
     .replaceAll('\r', '');
 }
+
+document.addEventListener('DOMContentLoaded', setupFastRequestFlow);
