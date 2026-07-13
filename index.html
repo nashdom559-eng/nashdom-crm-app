@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.16.2 · дата визита при передаче<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">PWA v0.17 · общедомовые работы<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -44,39 +44,36 @@
 
     <section id="viewNew" class="view">
       <main class="card">
-        <h1>Новая заявка</h1>
-
-        <label>1. Дом</label>
-        <select id="house"></select>
-
-        <label>2. Квартира</label>
-        <input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
-
-        <div id="flatHistory" class="flat-history"></div>
-        <div id="contactSuggestions" class="contact-suggestions"></div>
-
-        <label>3. Заявка</label>
-        <div class="voice-field">
-          <textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea>
-          <button id="voiceBtn" type="button" class="voice-btn" onclick="toggleVoiceInput()">🎙 Говорить</button>
+        <h1>Новая запись</h1>
+        <label>Тип записи</label>
+        <div class="record-type-grid">
+          <button type="button" class="record-type-btn active" data-record-type="resident" onclick="setRecordType('resident')">🏠 Заявка квартиры</button>
+          <button type="button" class="record-type-btn" data-record-type="common" onclick="setRecordType('common')">🏢 Общее имущество</button>
+          <button type="button" class="record-type-btn" data-record-type="planned" onclick="setRecordType('planned')">🛠 Плановая работа</button>
         </div>
+        <input id="recordType" type="hidden" value="resident">
+        <label>1. Дом</label><select id="house"></select>
+        <div id="residentFields">
+          <label>2. Квартира</label><input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
+          <div id="flatHistory" class="flat-history"></div><div id="contactSuggestions" class="contact-suggestions"></div>
+        </div>
+        <div id="commonFields" class="record-extra-fields" hidden>
+          <label>2. Место / объект</label>
+          <select id="commonLocation" onchange="toggleCustomLocation()">
+            <option value="">— Выберите —</option><option value="Подъезд">Подъезд</option><option value="Подвал">Подвал</option><option value="ИТП">ИТП</option><option value="Электрощитовая">Электрощитовая</option><option value="Узел учёта">Узел учёта</option><option value="Кровля">Кровля</option><option value="Чердак">Чердак</option><option value="Двор">Двор</option><option value="Фасад">Фасад</option><option value="Другое">Другое</option>
+          </select>
+          <input id="commonLocationDetails" type="text" placeholder="Уточнение: подъезд №2, насос №1 и т. п.">
+          <input id="customLocation" type="text" placeholder="Укажите место" hidden>
+          <label>Источник</label>
+          <select id="recordSource"><option value="Обнаружено при обходе">Обнаружено при обходе</option><option value="Председатель">Председатель</option><option value="Житель">Житель</option><option value="Подрядчик">Подрядчик</option><option value="Проверка / инспекция">Проверка / инспекция</option><option value="Диспетчер">Диспетчер</option></select>
+        </div>
+        <label id="descriptionLabel">3. Заявка</label>
+        <div class="voice-field"><textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea><button id="voiceBtn" type="button" class="voice-btn" onclick="toggleVoiceInput()">🎙 Говорить</button></div>
         <div id="voiceStatus" class="voice-status"></div>
-
-        <label class="emergency-toggle">
-          <input id="isEmergency" type="checkbox">
-          <span>🚨 Аварийная заявка</span>
-        </label>
-
-        <label>4. ФИО / как обращаться</label>
-        <input id="name" type="text" placeholder="Например: Иванов Сергей">
-
-        <label>5. Телефон</label>
-        <input id="phone" type="tel" placeholder="Например: 89123456789">
-
-        <label>6. Плановый визит</label>
-        <input id="planDate" type="datetime-local">
-
-        <button id="saveBtn" onclick="saveRequest()">Сохранить заявку</button>
+        <label id="emergencyBlock" class="emergency-toggle"><input id="isEmergency" type="checkbox"><span>🚨 Аварийная заявка</span></label>
+        <div id="residentContactFields"><label>4. ФИО / как обращаться</label><input id="name" type="text" placeholder="Например: Иванов Сергей"><label>5. Телефон</label><input id="phone" type="tel" placeholder="Например: 89123456789"></div>
+        <label id="planDateLabel">6. Плановый визит</label><input id="planDate" type="datetime-local">
+        <button id="saveBtn" onclick="saveRequest()">Сохранить</button>
       </main>
     </section>
 
