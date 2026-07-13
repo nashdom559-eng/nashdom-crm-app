@@ -245,58 +245,29 @@ function fillEditHouseSelect() {
   if (currentValue) select.value = currentValue;
 }
 
+function setRecordType(type) {
+  const allowed = ['resident', 'common', 'planned'];
+  const nextType = allowed.includes(type) ? type : 'resident';
+  setValue('recordType', nextType);
+  document.querySelectorAll('.record-type-btn').forEach(function(button) { button.classList.toggle('active', button.dataset.recordType === nextType); });
+  const residentFields=document.getElementById('residentFields'); const commonFields=document.getElementById('commonFields'); const residentContacts=document.getElementById('residentContactFields'); const emergencyBlock=document.getElementById('emergencyBlock'); const descriptionLabel=document.getElementById('descriptionLabel'); const planDateLabel=document.getElementById('planDateLabel'); const description=document.getElementById('description');
+  if(residentFields) residentFields.hidden=nextType!=='resident'; if(commonFields) commonFields.hidden=nextType==='resident'; if(residentContacts) residentContacts.hidden=nextType!=='resident'; if(emergencyBlock) emergencyBlock.hidden=nextType==='planned';
+  if(descriptionLabel) descriptionLabel.textContent=nextType==='planned'?'3. Что нужно сделать':nextType==='common'?'3. Неисправность / задача':'3. Заявка';
+  if(planDateLabel) planDateLabel.textContent=nextType==='planned'?'4. Срок выполнения':'6. Плановый визит';
+  if(description) description.placeholder=nextType==='planned'?'Например: заменить манометр на обратке':nextType==='common'?'Например: подтекает сальник насоса отопления':'Например: течёт стояк';
+  if(nextType==='planned') setChecked('isEmergency',false);
+}
+function toggleCustomLocation(){const s=document.getElementById('commonLocation');const c=document.getElementById('customLocation');if(!s||!c)return;c.hidden=s.value!=='Другое';if(c.hidden)c.value='';else c.focus();}
+function getCommonLocationValue(){const selected=getValue('commonLocation');const custom=getValue('customLocation');const details=getValue('commonLocationDetails');const location=selected==='Другое'?custom:selected;return [location,details].filter(Boolean).join(' — ');}
+function getRecordTypeLabel(req){if(req.category==='Плановая работа')return '🛠 Плановая работа';if(req.category==='Общее имущество')return '🏢 Общее имущество';return '';}
+function isCommonPropertyRequest(req){return req.category==='Общее имущество'||req.category==='Плановая работа';}
+
 function saveRequest() {
-  const btn = document.getElementById('saveBtn');
-
-  const data = {
-    house: getValue('house'),
-    flat: getValue('flat'),
-    description: getValue('description'),
-    name: getValue('name'),
-    phone: getValue('phone'),
-    planDate: getValue('planDate'),
-    isEmergency: getChecked('isEmergency')
-  };
-
-  if (!data.house) {
-    return showStatus('Выбери дом', true);
-  }
-
-  if (!data.flat) {
-    return showStatus('Заполни квартиру', true);
-  }
-
-  if (!data.description) {
-    return showStatus('Заполни заявку', true);
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Сохраняю...';
-
-  apiCall(
-    'addRequest',
-    data,
-    function(result) {
-      showStatus(result.message || 'Заявка сохранена');
-
-      clearNewRequestForm();
-
-      btn.disabled = false;
-      btn.textContent = '✓ Сохранено';
-
-      loadData();
-
-      setTimeout(function() {
-        btn.textContent = 'Сохранить заявку';
-      }, 1000);
-    },
-    function(error) {
-      showStatus('Ошибка сохранения: ' + error, true);
-
-      btn.disabled = false;
-      btn.textContent = 'Сохранить заявку';
-    }
-  );
+  const btn=document.getElementById('saveBtn'); const recordType=getValue('recordType')||'resident'; const isResident=recordType==='resident'; const isPlanned=recordType==='planned';
+  const data={house:getValue('house'),flat:isResident?getValue('flat'):getCommonLocationValue(),description:getValue('description'),name:isResident?getValue('name'):getValue('recordSource'),phone:isResident?getValue('phone'):'',planDate:getValue('planDate'),isEmergency:isPlanned?false:getChecked('isEmergency'),category:recordType==='common'?'Общее имущество':recordType==='planned'?'Плановая работа':'',source:recordType==='common'?'Вручную / Общее имущество':recordType==='planned'?'Вручную / Плановая работа':'Вручную'};
+  if(!data.house)return showStatus('Выбери дом',true); if(!data.flat)return showStatus(isResident?'Заполни квартиру':'Укажи место или объект',true); if(!data.description)return showStatus(isPlanned?'Опиши плановую работу':'Заполни заявку',true); if(isPlanned&&!data.planDate)return showStatus('Укажи срок плановой работы',true);
+  btn.disabled=true;btn.textContent='Сохраняю...';
+  apiCall('addRequest',data,function(result){showStatus(result.message||'Запись сохранена');clearNewRequestForm();setRecordType('resident');btn.disabled=false;btn.textContent='✓ Сохранено';loadData();setTimeout(function(){btn.textContent='Сохранить';},1000);},function(error){showStatus('Ошибка сохранения: '+error,true);btn.disabled=false;btn.textContent='Сохранить';});
 }
 
 function renderDashboard() {
@@ -435,23 +406,25 @@ function renderAcceptedRequests() {
 function renderRequestCard(req, showActions) {
   const statusClass = getRequestCardClass(req);
 
+  const commonRequest = isCommonPropertyRequest(req);
+
   const flat = req.flat
-    ? ' кв. ' + escapeHtml(req.flat)
+    ? commonRequest
+      ? ' · ' + escapeHtml(req.flat)
+      : ' кв. ' + escapeHtml(req.flat)
+    : '';
+
+  const recordTypeBadge = getRecordTypeLabel(req)
+    ? '<div class="record-type-badge">' + getRecordTypeLabel(req) + '</div>'
     : '';
 
   const name = req.name
-    ? '<div class="request-person">👤 ' +
-      escapeHtml(req.name) +
-      '</div>'
-    : '<div class="request-person muted">👤 ФИО не указано</div>';
+    ? '<div class="request-person">' + (commonRequest ? '🔎 ' : '👤 ') + escapeHtml(req.name) + '</div>'
+    : commonRequest ? '' : '<div class="request-person muted">👤 ФИО не указано</div>';
 
   const phone = req.phone
-    ? '<a class="phone-link" href="tel:' +
-      escapeHtml(req.phone) +
-      '">📞 ' +
-      escapeHtml(formatPhone(req.phone)) +
-      '</a>'
-    : '<span class="request-meta">📞 телефон не указан</span>';
+    ? '<a class="phone-link" href="tel:' + escapeHtml(req.phone) + '">📞 ' + escapeHtml(formatPhone(req.phone)) + '</a>'
+    : commonRequest ? '' : '<span class="request-meta">📞 телефон не указан</span>';
 
   const plan = req.planDate
     ? '<div class="request-plan">' +
@@ -1268,6 +1241,13 @@ function clearNewRequestForm() {
   setValue('phone', '');
   setValue('planDate', '');
   setChecked('isEmergency', false);
+  setValue('recordType', 'resident');
+  setValue('commonLocation', '');
+  setValue('commonLocationDetails', '');
+  setValue('customLocation', '');
+  setValue('recordSource', 'Обнаружено при обходе');
+  const customLocation = document.getElementById('customLocation');
+  if (customLocation) customLocation.hidden = true;
 
   hideBox(document.getElementById('flatHistory'));
 
@@ -1845,7 +1825,7 @@ function renderHouseRequestItem(req) {
   return `
     <div class="house-request-item">
       <div class="house-request-head">
-        <strong>кв. ${escapeHtml(req.flat || '—')}</strong>
+        <strong>${isCommonPropertyRequest(req) ? '📍 ' : 'кв. '}${escapeHtml(req.flat || '—')}</strong>
         <span>${escapeHtml(requestShortHouseDate(req))}</span>
       </div>
       <div class="house-request-text">${escapeHtml(req.description || '')}</div>
@@ -2287,8 +2267,9 @@ function buildRequestShareText(req) {
   const lines = [
     'ЗАЯВКА ' + (req.id || ''),
     'Дом: ' + (req.house || ''),
-    req.flat ? 'Квартира: ' + req.flat : '',
-    req.name ? 'Контакт: ' + req.name : '',
+    req.flat ? (isCommonPropertyRequest(req) ? 'Место: ' : 'Квартира: ') + req.flat : '',
+    getRecordTypeLabel(req) ? 'Тип: ' + getRecordTypeLabel(req).replace(/^[^ ]+ /, '') : '',
+    req.name ? (isCommonPropertyRequest(req) ? 'Источник: ' : 'Контакт: ') + req.name : '',
     req.phone ? 'Телефон: ' + req.phone : '',
     req.priority ? 'Категория: ' + req.priority : '',
     req.executor ? 'Исполнитель: ' + req.executor : '',
@@ -2339,3 +2320,6 @@ function fallbackCopyRequest(text) {
     prompt('Скопируй заявку:', text);
   }
 }
+
+
+document.addEventListener('DOMContentLoaded', function(){ setRecordType(getValue('recordType') || 'resident'); });
