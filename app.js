@@ -2246,6 +2246,43 @@ function confirmDispatchRequest() {
   );
 }
 
+
+function formatPlanForShare(value) {
+  if (!value) return '';
+
+  const text = String(value).trim();
+
+  // Уже готовая русская дата из Apps Script.
+  const ruMatch = text.match(
+    /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2}))?/
+  );
+
+  if (ruMatch) {
+    const day = String(ruMatch[1]).padStart(2, '0');
+    const month = String(ruMatch[2]).padStart(2, '0');
+    const year = String(ruMatch[3]).slice(-2);
+    const time = ruMatch[4]
+      ? ' в ' + String(ruMatch[4]).padStart(2, '0') + ':' + ruMatch[5]
+      : '';
+
+    return day + '.' + month + '.' + year + time;
+  }
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return day + '.' + month + '.' + year + ' в ' + hours + ':' + minutes;
+}
+
 function buildRequestShareText(req) {
   const lines = [
     'ЗАЯВКА ' + (req.id || ''),
@@ -2255,6 +2292,7 @@ function buildRequestShareText(req) {
     req.phone ? 'Телефон: ' + req.phone : '',
     req.priority ? 'Категория: ' + req.priority : '',
     req.executor ? 'Исполнитель: ' + req.executor : '',
+    req.planDate ? 'Плановый визит: ' + formatPlanForShare(req.planDate) : '',
     '',
     req.description || ''
   ];
