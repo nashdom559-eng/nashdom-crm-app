@@ -11,7 +11,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-const CACHE_NAME = "nashdom-crm-v0.21.1-other-addresses-fix-1";
+const CACHE_NAME = "nashdom-crm-v0.22-photos-objects-1";
 
 const APP_SHELL = [
   "./",
