@@ -456,9 +456,77 @@ function compressPhoto(file) {
   });
 }
 
-function uploadPhotoPayload(payload) {
+function apiCallPromise(action, payload) {
   return new Promise(function(resolve, reject) {
-    const uploadId = 'photo_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    apiCall(action, payload, resolve, function(error) {
+      reject(new Error(error || 'Ошибка сервера'));
+    });
+  });
+}
+
+function getPhotoCountFromData(data, rowNumber, requestId, kind) {
+  const requests = data && Array.isArray(data.allRequests)
+    ? data.allRequests
+    : [];
+
+  const request = requests.find(function(item) {
+    if (rowNumber && Number(item.rowNumber) === Number(rowNumber)) return true;
+    if (requestId && String(item.id || '') === String(requestId)) return true;
+    return false;
+  });
+
+  if (!request) return 0;
+
+  const list = kind === 'after'
+    ? request.photosAfter
+    : request.photosBefore;
+
+  return Array.isArray(list) ? list.length : 0;
+}
+
+async function waitForPhotoConfirmation(options) {
+  const attempts = 20;
+  const delayMs = 3000;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    await new Promise(function(resolve) {
+      setTimeout(resolve, delayMs);
+    });
+
+    try {
+      const data = await apiCallPromise('getAppData', null);
+      const count = getPhotoCountFromData(
+        data,
+        options.rowNumber,
+        options.requestId,
+        options.kind
+      );
+
+      if (count >= options.expectedCount) {
+        return {
+          confirmed: true,
+          count: count
+        };
+      }
+    } catch (error) {
+      // Временная ошибка проверки не означает, что загрузка провалилась.
+    }
+  }
+
+  throw new Error(
+    'Фото отправлено, но приложение не смогло подтвердить загрузку. ' +
+    'Обнови список заявок через несколько секунд.'
+  );
+}
+
+function uploadPhotoPayload(payload, expectedCount) {
+  return new Promise(function(resolve, reject) {
+    const uploadId =
+      'photo_' +
+      Date.now() +
+      '_' +
+      Math.floor(Math.random() * 100000);
+
     const iframe = document.createElement('iframe');
     iframe.name = uploadId;
     iframe.style.display = 'none';
@@ -470,7 +538,11 @@ function uploadPhotoPayload(payload) {
     form.target = uploadId;
     form.style.display = 'none';
 
-    const values = Object.assign({}, payload, { action: 'uploadPhoto', uploadId: uploadId });
+    const values = Object.assign({}, payload, {
+      action: 'uploadPhoto',
+      uploadId: uploadId
+    });
+
     Object.keys(values).forEach(function(key) {
       const input = document.createElement('input');
       input.type = 'hidden';
@@ -478,41 +550,119 @@ function uploadPhotoPayload(payload) {
       input.value = values[key] == null ? '' : String(values[key]);
       form.appendChild(input);
     });
+
     document.body.appendChild(form);
 
-    let timer;
+    let finished = false;
+    let messageTimer;
+
     function cleanup() {
-      clearTimeout(timer);
+      clearTimeout(messageTimer);
       window.removeEventListener('message', onMessage);
-      form.remove();
-      iframe.remove();
+
+      if (form.isConnected) form.remove();
+      if (iframe.isConnected) iframe.remove();
     }
+
+    function finishSuccess(result) {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      resolve(result || { confirmed: true });
+    }
+
+    function finishError(error) {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      reject(error);
+    }
+
     function onMessage(event) {
       const message = event.data;
-      if (!message || message.source !== 'nashdom-photo-upload') return;
-      const response = message.payload || {};
-      if (response.uploadId !== uploadId) return;
-      cleanup();
-      if (response.ok) resolve(response.result);
-      else reject(new Error(response.error || 'Ошибка загрузки фото'));
+
+      if (
+        !message ||
+        message.source !== 'nashdom-photo-upload' ||
+        !message.payload ||
+        message.payload.uploadId !== uploadId
+      ) {
+        return;
+      }
+
+      const response = message.payload;
+
+      if (response.ok) {
+        finishSuccess(response.result);
+      } else {
+        finishError(
+          new Error(response.error || 'Ошибка загрузки фото')
+        );
+      }
     }
+
     window.addEventListener('message', onMessage);
-    timer = setTimeout(function() { cleanup(); reject(new Error('Загрузка фотографии превысила время ожидания')); }, 90000);
+
+    // Ответ через iframe иногда не доходит до установленной PWA.
+    // Поэтому параллельно проверяем появление ссылки в самой заявке.
+    waitForPhotoConfirmation({
+      rowNumber: payload.rowNumber,
+      requestId: payload.requestId,
+      kind: payload.kind,
+      expectedCount: expectedCount
+    })
+      .then(finishSuccess)
+      .catch(finishError);
+
+    // Таймер нужен только для очистки зависшего iframe.
+    // Ошибку по нему не показываем: результат определяет проверка заявки.
+    messageTimer = setTimeout(function() {
+      if (form.isConnected) form.remove();
+      if (iframe.isConnected) iframe.remove();
+    }, 20000);
+
     form.submit();
   });
 }
 
-async function uploadRequestPhotos(files, rowNumber, requestId, kind) {
-  for (const file of files.slice(0, 3)) {
-    const compressed = await compressPhoto(file);
-    await uploadPhotoPayload({
-      token: getAccessKey(),
-      rowNumber: rowNumber,
-      requestId: requestId || '',
-      kind: kind,
-      fileName: compressed.fileName,
-      dataUrl: compressed.dataUrl
-    });
+async function uploadRequestPhotos(
+  files,
+  rowNumber,
+  requestId,
+  kind
+) {
+  const existingRequest = (CRM.data.allRequests || []).find(function(item) {
+    if (rowNumber && Number(item.rowNumber) === Number(rowNumber)) return true;
+    if (requestId && String(item.id || '') === String(requestId)) return true;
+    return false;
+  });
+
+  const existingList = existingRequest
+    ? kind === 'after'
+      ? existingRequest.photosAfter
+      : existingRequest.photosBefore
+    : [];
+
+  const baseCount = Array.isArray(existingList)
+    ? existingList.length
+    : 0;
+
+  const selected = files.slice(0, 3);
+
+  for (let index = 0; index < selected.length; index++) {
+    const compressed = await compressPhoto(selected[index]);
+
+    await uploadPhotoPayload(
+      {
+        token: getAccessKey(),
+        rowNumber: rowNumber,
+        requestId: requestId || '',
+        kind: kind,
+        fileName: compressed.fileName,
+        dataUrl: compressed.dataUrl
+      },
+      baseCount + index + 1
+    );
   }
 }
 
@@ -599,8 +749,17 @@ function saveRequest() {
       const photos = getSelectedFiles('beforePhotos');
       if (photos.length) {
         btn.textContent = 'Загружаю фото...';
-        try { await uploadRequestPhotos(photos, result.rowNumber, result.id, 'before'); }
-        catch (error) { alert('Заявка сохранена, но фото не загрузились: ' + error.message); }
+        try {
+          await uploadRequestPhotos(
+            photos,
+            result.rowNumber,
+            result.id,
+            'before'
+          );
+          showStatus('Заявка и фото сохранены');
+        } catch (error) {
+          alert(error.message);
+        }
       }
       showStatus(result.message || 'Запись сохранена');
       clearNewRequestForm();
