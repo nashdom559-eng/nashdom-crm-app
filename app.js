@@ -1111,47 +1111,33 @@ function renderRequestCard(req, showActions) {
 }
 
 function renderManagementActions(req) {
-  const editButton = `
-    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">
-      ✏️ Редактировать
-    </button>
-  `;
-
-  const dispatchButton = `
-    <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">
-      👷 Исполнитель
-    </button>
-  `;
-
-  const shareButton = `
-    <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">
-      📤 Поделиться
-    </button>
-  `;
-
-  if (req.status === 'Выполнено') {
-    return `
-      <div class="management-actions">
-        ${editButton}
-        ${dispatchButton}
-        ${shareButton}
-        <button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">
-          ↩ Возобновить
-        </button>
-        <button class="manage-btn delete-btn" onclick="openDeleteModal(${Number(req.rowNumber)}, '${escapeJs(req.id || '')}')">
-          🗑 Удалить
-        </button>
-      </div>
-    `;
+  if (req.status === 'Удалено') {
+    return `<div class="management-actions">
+      <button class="manage-btn reopen-btn" onclick="restoreRequestUi(${Number(req.rowNumber)})">↩ Восстановить</button>
+      <button class="manage-btn delete-btn" onclick="openDeleteModal(${Number(req.rowNumber)}, '${escapeJs(req.id || '')}')">🗑 Удалить навсегда</button>
+    </div>`;
   }
 
-  return `
-    <div class="management-actions">
-      ${editButton}
-      ${dispatchButton}
-      ${shareButton}
-    </div>
-  `;
+  if (req.status === 'Архив') {
+    return `<div class="management-actions">
+      <button class="manage-btn reopen-btn" onclick="restoreRequestUi(${Number(req.rowNumber)})">↩ Вернуть в работу</button>
+      <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Поделиться</button>
+      <button class="manage-btn delete-btn" onclick="trashRequestUi(${Number(req.rowNumber)})">🗑 В корзину</button>
+    </div>`;
+  }
+
+  const extra = req.status === 'Выполнено'
+    ? `<button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">↩ Возобновить</button>`
+    : '';
+
+  return `<div class="management-actions">
+    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Карточка</button>
+    <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">👷 Исполнитель</button>
+    <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Поделиться</button>
+    ${extra}
+    <button class="manage-btn archive-btn" onclick="archiveRequestUi(${Number(req.rowNumber)})">📦 Архив</button>
+    <button class="manage-btn delete-btn" onclick="trashRequestUi(${Number(req.rowNumber)})">🗑 Корзина</button>
+  </div>`;
 }
 
 function setJournalFilter(filter) {
@@ -1199,13 +1185,11 @@ function getFilteredJournalRequests() {
     });
   }
 
-  if (filter === 'other') {
-    return all.filter(function(req) {
-      return isOtherAddressRequest(req);
-    });
-  }
+  if (filter === 'other') return all.filter(isOtherAddressRequest);
+  if (filter === 'archive') return all.filter(function(req){ return req.status === 'Архив'; });
+  if (filter === 'trash') return all.filter(function(req){ return req.status === 'Удалено'; });
 
-  return all;
+  return all.filter(function(req){ return req.status !== 'Архив' && req.status !== 'Удалено'; });
 }
 
 function runSearch() {
@@ -1268,7 +1252,7 @@ function renderSearchResults(results) {
       .map(function(req) {
         return renderRequestCard(
           req,
-          req.status !== 'Выполнено'
+          true
         );
       })
       .join('');
@@ -1281,6 +1265,8 @@ function getJournalTitle() {
   if (filter === 'waiting') return 'Заявки в ожидании';
   if (filter === 'done') return 'Выполненные заявки';
   if (filter === 'other') return 'Другие адреса';
+  if (filter === 'archive') return 'Архив';
+  if (filter === 'trash') return 'Корзина';
 
   return 'Все заявки';
 }
@@ -3120,3 +3106,29 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() { showView(requestedView); }, 300);
   }
 });
+
+
+/* ===== v1.0: архив, корзина, восстановление ===== */
+function archiveRequestUi(rowNumber) {
+  if (!confirm('Переместить заявку в архив?')) return;
+  apiCall('archiveRequest',{rowNumber:rowNumber},function(r){showStatus(r.message);loadData();},function(e){showStatus(e,true);});
+}
+function trashRequestUi(rowNumber) {
+  if (!confirm('Переместить заявку в корзину?')) return;
+  apiCall('moveRequestToTrash',{rowNumber:rowNumber},function(r){showStatus(r.message);loadData();},function(e){showStatus(e,true);});
+}
+function restoreRequestUi(rowNumber) {
+  apiCall('restoreRequest',{rowNumber:rowNumber},function(r){showStatus(r.message);loadData();},function(e){showStatus(e,true);});
+}
+function archiveCurrentRequest() {
+  const row=CRM.state.currentEditRowNumber;
+  if(!row)return;
+  closeEditModal();
+  archiveRequestUi(row);
+}
+function trashCurrentRequest() {
+  const row=CRM.state.currentEditRowNumber;
+  if(!row)return;
+  closeEditModal();
+  trashRequestUi(row);
+}
