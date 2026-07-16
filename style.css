@@ -832,3 +832,45 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
     margin-right: auto;
   }
 }
+
+
+/* v0.20.2 — шапка и секции главной на компьютере */
+@media (min-width: 900px) {
+  .header {
+    position: static !important;
+    top: auto !important;
+  }
+
+  #todayRequests.requests-list {
+    display: block !important;
+  }
+
+  .dashboard-section {
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  .dashboard-section:first-child {
+    margin-top: 12px;
+  }
+
+  .dashboard-section .journal-title {
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 20px;
+  }
+
+  .dashboard-section-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+}
+
+@media (min-width: 1250px) {
+  .dashboard-section-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
