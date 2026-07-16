@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.20.2 · удобная главная<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">PWA v0.21 · другие адреса<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -331,6 +331,30 @@
     </div>
 
 
+
+    <section id="viewOther" class="view">
+      <main class="card">
+        <div class="section-heading-row">
+          <div>
+            <h1>📍 Другие адреса</h1>
+            <div class="section-subtitle">Разовые клиенты и сторонние объекты</div>
+          </div>
+          <button type="button" class="compact-action-btn" onclick="createOtherAddressRequest()">➕ Новая заявка</button>
+        </div>
+
+        <div id="otherAddressesEmpty" class="empty-box" hidden>
+          Других адресов пока нет. Создай первую заявку через кнопку «Новая заявка».
+        </div>
+
+        <div id="otherAddressControls" hidden>
+          <label>Выберите адрес</label>
+          <select id="otherAddressSelect" onchange="renderOtherAddressCard()"></select>
+
+          <div id="otherAddressCard" class="other-address-card-wrap"></div>
+        </div>
+      </main>
+    </section>
+
     <section id="viewWalk" class="view">
       <main class="card">
         <h1>🚶 Обход дома</h1>
@@ -392,6 +416,9 @@
       </button>
       <button data-view="houses" onclick="showView('houses')">
         <span class="nav-icon">🏢</span><span>Дома</span>
+      </button>
+      <button data-view="other" onclick="showView('other')">
+        <span class="nav-icon">📍</span><span>Другие адреса</span>
       </button>
       <button data-view="walk" onclick="showView('walk')">
         <span class="nav-icon">🚶</span><span>Обход</span>
