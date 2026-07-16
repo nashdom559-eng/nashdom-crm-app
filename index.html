@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.22.1 · надёжная загрузка фото<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.0<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -100,6 +100,8 @@
           <button data-filter="active" onclick="setJournalFilter('active')">Активные</button>
           <button data-filter="waiting" onclick="setJournalFilter('waiting')">Ожидают</button>
           <button data-filter="done" onclick="setJournalFilter('done')">Выполненные</button>
+          <button data-filter="archive" onclick="setJournalFilter('archive')">Архив</button>
+          <button data-filter="trash" onclick="setJournalFilter('trash')">Корзина</button>
           <button data-filter="other" onclick="setJournalFilter('other')">Другие адреса</button>
         </div>
 
@@ -266,6 +268,10 @@
         <label>Плановая дата</label>
         <input id="editPlanDate" type="datetime-local">
 
+        <div class="request-admin-actions">
+          <button type="button" class="archive-btn" onclick="archiveCurrentRequest()">📦 В архив</button>
+          <button type="button" class="delete-btn" onclick="trashCurrentRequest()">🗑 В корзину</button>
+        </div>
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeEditModal()">Отмена</button>
           <button type="button" class="modal-ok" onclick="confirmEditRequest()">Сохранить</button>
