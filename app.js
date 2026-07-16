@@ -177,7 +177,6 @@ function fillHouseSelect() {
   if (!select) return;
 
   const currentValue = select.value;
-
   select.innerHTML = '';
 
   (CRM.data.houses || []).forEach(function(house) {
@@ -187,9 +186,24 @@ function fillHouseSelect() {
     select.appendChild(option);
   });
 
+  const otherOption = document.createElement('option');
+  otherOption.value = '__OTHER__';
+  otherOption.textContent = 'Другой адрес';
+  select.appendChild(otherOption);
+
   if (currentValue) {
-    select.value = currentValue;
+    const known = Array.from(select.options).some(function(option) {
+      return option.value === currentValue;
+    });
+
+    select.value = known ? currentValue : '__OTHER__';
+
+    if (!known && currentValue !== '__OTHER__') {
+      setValue('otherAddress', currentValue);
+    }
   }
+
+  toggleOtherAddressField();
 }
 
 
@@ -261,6 +275,65 @@ function toggleCustomLocation(){const s=document.getElementById('commonLocation'
 function getCommonLocationValue(){const selected=getValue('commonLocation');const custom=getValue('customLocation');const details=getValue('commonLocationDetails');const location=selected==='Другое'?custom:selected;return [location,details].filter(Boolean).join(' — ');}
 function getRecordTypeLabel(req){if(req.category==='Плановая работа')return '🛠 Плановая работа';if(req.category==='Общее имущество')return '🏢 Общее имущество';return '';}
 function isCommonPropertyRequest(req){return req.category==='Общее имущество'||req.category==='Плановая работа';}
+
+
+function toggleOtherAddressField() {
+  const select = document.getElementById('house');
+  const input = document.getElementById('otherAddress');
+
+  if (!select || !input) return;
+
+  input.hidden = select.value !== '__OTHER__';
+
+  if (!input.hidden) {
+    window.setTimeout(function() {
+      input.focus();
+    }, 80);
+  }
+}
+
+function getSelectedHouseValue() {
+  const selected = getValue('house');
+
+  if (selected === '__OTHER__') {
+    return getValue('otherAddress');
+  }
+
+  return selected;
+}
+
+function isOtherAddressRequest(req) {
+  const houses = CRM && CRM.data && Array.isArray(CRM.data.houses)
+    ? CRM.data.houses
+    : [];
+
+  return Boolean(req && req.house && !houses.includes(String(req.house)));
+}
+
+function toggleWalkOtherAddress() {
+  const select = document.getElementById('walkHouse');
+  const input = document.getElementById('walkOtherAddress');
+
+  if (!select || !input) return;
+
+  input.hidden = select.value !== '__OTHER__';
+
+  if (!input.hidden) {
+    window.setTimeout(function() {
+      input.focus();
+    }, 80);
+  }
+}
+
+function getWalkHouseValue() {
+  const selected = getValue('walkHouse');
+
+  if (selected === '__OTHER__') {
+    return getValue('walkOtherAddress');
+  }
+
+  return selected;
+}
 
 function saveRequest() {
   const btn=document.getElementById('saveBtn'); const recordType=getValue('recordType')||'resident'; const isResident=recordType==='resident'; const isPlanned=recordType==='planned';
@@ -434,6 +507,10 @@ function renderRequestCard(req, showActions) {
 
   const emergencyBadge = req.isEmergency
     ? '<div class="emergency-badge">🚨 Аварийная заявка</div>'
+    : '';
+
+  const otherAddressBadge = isOtherAddressRequest(req)
+    ? '<div class="other-address-badge">📍 Разовый адрес</div>'
     : '';
 
   const emergencyTimeline = req.isEmergency
@@ -673,6 +750,12 @@ function getFilteredJournalRequests() {
     });
   }
 
+  if (filter === 'other') {
+    return all.filter(function(req) {
+      return isOtherAddressRequest(req);
+    });
+  }
+
   return all;
 }
 
@@ -748,6 +831,7 @@ function getJournalTitle() {
   if (filter === 'active') return 'Активные заявки';
   if (filter === 'waiting') return 'Заявки в ожидании';
   if (filter === 'done') return 'Выполненные заявки';
+  if (filter === 'other') return 'Другие адреса';
 
   return 'Все заявки';
 }
@@ -1246,6 +1330,10 @@ function clearNewRequestForm() {
   setValue('commonLocationDetails', '');
   setValue('customLocation', '');
   setValue('recordSource', 'Обнаружено при обходе');
+  setValue('otherAddress', '');
+
+  const otherAddress = document.getElementById('otherAddress');
+  if (otherAddress) otherAddress.hidden = true;
   const customLocation = document.getElementById('customLocation');
   if (customLocation) customLocation.hidden = true;
 
@@ -2323,3 +2411,39 @@ function fallbackCopyRequest(text) {
 
 
 document.addEventListener('DOMContentLoaded', function(){ setRecordType(getValue('recordType') || 'resident'); });
+
+
+/* ===== v0.18: режим обхода дома ===== */
+CRM.walk = { active:false, house:'', startedAt:null, entries:[] };
+
+function setupWalkthroughView(){
+  const s=document.getElementById('walkHouse'); if(!s||!CRM||!CRM.data)return;
+  const cur=s.value, houses=Array.isArray(CRM.data.houses)?CRM.data.houses:[];
+  s.innerHTML='<option value="">— Выберите дом —</option>'+houses.map(h=>'<option value="'+escapeHtml(h)+'">'+escapeHtml(h)+'</option>').join('');
+  if(cur&&houses.includes(cur))s.value=cur; renderWalkSession();
+}
+function startWalkthrough(){ const h=getValue('walkHouse'); if(!h){alert('Выбери дом для обхода');return;} CRM.walk={active:true,house:h,startedAt:new Date(),entries:[]}; renderWalkSession(); }
+function finishWalkthrough(){ if(!CRM.walk.active)return; CRM.walk.active=false; renderWalkSession(); }
+function resetWalkthrough(){ CRM.walk={active:false,house:'',startedAt:null,entries:[]}; const s=document.getElementById('walkHouse'); if(s)s.value=''; clearWalkEntryForm(); renderWalkSession(); }
+function renderWalkSession(){
+  const setup=document.getElementById('walkSetup'), active=document.getElementById('walkActive'), summary=document.getElementById('walkSummary'); if(!setup||!active||!summary)return;
+  setup.hidden=CRM.walk.active||(!CRM.walk.active&&CRM.walk.entries.length>0); active.hidden=!CRM.walk.active; summary.hidden=CRM.walk.active||CRM.walk.entries.length===0;
+  if(CRM.walk.active){ setText('walkHouseTitle',CRM.walk.house); setText('walkStartedAt','Начат в '+CRM.walk.startedAt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})); setText('walkCounter',String(CRM.walk.entries.length)); renderWalkEntries(); }
+  else if(CRM.walk.entries.length) renderWalkSummary();
+}
+function toggleWalkCustomLocation(){ const s=document.getElementById('walkLocation'),i=document.getElementById('walkCustomLocation'); if(!s||!i)return; i.hidden=s.value!=='Другое'; if(i.hidden)i.value=''; else i.focus(); }
+function getWalkLocation(){ const v=getValue('walkLocation'); return v==='Другое'?getValue('walkCustomLocation'):v; }
+function clearWalkEntryForm(){ setValue('walkLocation',''); setValue('walkCustomLocation',''); setValue('walkDescription',''); setValue('walkPlanDate',''); const i=document.getElementById('walkCustomLocation'); if(i)i.hidden=true; }
+function saveWalkEntry(){
+  if(!CRM.walk.active)return; const location=getWalkLocation(),description=getValue('walkDescription'),planDate=getValue('walkPlanDate'),btn=document.getElementById('walkSaveBtn');
+  if(!location){showWalkStatus('Укажи место или объект',true);return;} if(!description){showWalkStatus('Продиктуй или введи замечание',true);return;}
+  if(btn){btn.disabled=true;btn.textContent='Сохраняю...';}
+  apiCall('addRequest',{house:CRM.walk.house,flat:location,description:description,name:'Обнаружено при обходе',phone:'',planDate:planDate,isEmergency:false,category:'Общее имущество',source:'Обход дома'},function(result){CRM.walk.entries.push({id:result.id||'',location,description,planDate}); clearWalkEntryForm(); renderWalkSession(); loadData(); if(btn){btn.disabled=false;btn.textContent='✓ Сохранить замечание';} showWalkStatus('Замечание сохранено',false);},function(error){if(btn){btn.disabled=false;btn.textContent='✓ Сохранить замечание';} showWalkStatus('Ошибка: '+error,true);});
+}
+function renderWalkEntries(){ const l=document.getElementById('walkSessionList'); if(!l)return; if(!CRM.walk.entries.length){l.innerHTML='<div class="empty-note">Во время обхода замечаний пока нет.</div>';return;} l.innerHTML='<h2 class="walk-list-title">Замечания этого обхода</h2>'+CRM.walk.entries.slice().reverse().map((e,i)=>'<div class="walk-entry-item"><div class="walk-entry-number">'+(CRM.walk.entries.length-i)+'</div><div><strong>📍 '+escapeHtml(e.location)+'</strong><div>'+escapeHtml(e.description)+'</div>'+(e.planDate?'<div class="walk-entry-plan">📅 '+escapeHtml(formatPlanForShare(e.planDate))+'</div>':'')+'</div></div>').join(''); }
+function renderWalkSummary(){ const b=document.getElementById('walkSummary'); if(!b)return; const counts={}; CRM.walk.entries.forEach(e=>counts[e.location]=(counts[e.location]||0)+1); const rows=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'ru',{numeric:true})).map(k=>'<div class="walk-summary-row"><span>'+escapeHtml(k)+'</span><strong>'+counts[k]+'</strong></div>').join(''); b.innerHTML='<div class="walk-summary-card"><div class="walk-summary-icon">✓</div><h2>Обход завершён</h2><div class="walk-summary-house">'+escapeHtml(CRM.walk.house)+'</div><div class="walk-summary-total">Создано замечаний: <strong>'+CRM.walk.entries.length+'</strong></div><div class="walk-summary-rows">'+rows+'</div><button type="button" onclick="shareWalkSummary()">📤 Поделиться итогом</button><button type="button" class="walk-new-btn" onclick="resetWalkthrough()">Начать новый обход</button></div>'; }
+function buildWalkSummaryText(){ const lines=['ОБХОД ДОМА',CRM.walk.house,'Создано замечаний: '+CRM.walk.entries.length,'']; CRM.walk.entries.forEach((e,i)=>{lines.push((i+1)+'. '+e.location,e.description); if(e.planDate)lines.push('Срок: '+formatPlanForShare(e.planDate)); lines.push('');}); return lines.join('\n').trim(); }
+async function shareWalkSummary(){ const text=buildWalkSummaryText(); if(navigator.share){try{await navigator.share({title:'Обход дома: '+CRM.walk.house,text});return;}catch(e){if(e&&e.name==='AbortError')return;}} try{await navigator.clipboard.writeText(text);alert('Итог обхода скопирован');}catch(e){prompt('Скопируй итог обхода:',text);} }
+function showWalkStatus(text,isError){ const b=document.getElementById('walkVoiceStatus'); if(!b)return; b.textContent=text;b.classList.toggle('error',!!isError);b.style.display='block';clearTimeout(showWalkStatus.timer);showWalkStatus.timer=setTimeout(()=>b.style.display='none',2500); }
+let walkRecognition=null,walkVoiceActive=false;
+function toggleWalkVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){showWalkStatus('Голосовой ввод не поддерживается',true);return;} if(walkVoiceActive&&walkRecognition){walkRecognition.stop();return;} walkRecognition=new SR(); walkRecognition.lang='ru-RU'; walkRecognition.interimResults=false; walkRecognition.continuous=false; const btn=document.getElementById('walkVoiceBtn'); walkRecognition.onstart=()=>{walkVoiceActive=true;if(btn){btn.classList.add('listening');btn.textContent='⏹ Остановить';}showWalkStatus('Слушаю…',false);}; walkRecognition.onresult=e=>{const t=e.results[0][0].transcript.trim(); const d=document.getElementById('walkDescription'); if(d)d.value=t; showWalkStatus('Распознано',false);}; walkRecognition.onerror=e=>showWalkStatus('Ошибка микрофона: '+(e.error||'неизвестно'),true); walkRecognition.onend=()=>{walkVoiceActive=false;if(btn){btn.classList.remove('listening');btn.textContent='🎙 Говорить';}}; walkRecognition.start(); }
