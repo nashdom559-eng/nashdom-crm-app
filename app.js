@@ -134,6 +134,7 @@ function loadData() {
       fillHouseSelect();
       fillEditHouseSelect();
       setupHousesView();
+      setupOtherAddressesView();
       renderDashboard();
       renderResidentInbox();
       renderAcceptedRequests();
@@ -217,6 +218,12 @@ function setupFastRequestFlow() {
 
     house.addEventListener('change', function() {
       window.setTimeout(function() {
+        if (house.value === '__OTHER__') {
+          const otherAddress = document.getElementById('otherAddress');
+          if (otherAddress) otherAddress.focus();
+          return;
+        }
+
         if (flat) {
           flat.focus();
           try {
@@ -280,12 +287,28 @@ function isCommonPropertyRequest(req){return req.category==='Общее имущ
 function toggleOtherAddressField() {
   const select = document.getElementById('house');
   const input = document.getElementById('otherAddress');
+  const flat = document.getElementById('flat');
+  const flatLabel = document.getElementById('flatLabel');
 
   if (!select || !input) return;
 
-  input.hidden = select.value !== '__OTHER__';
+  const isOther = select.value === '__OTHER__';
+  input.hidden = !isOther;
 
-  if (!input.hidden) {
+  if (flatLabel) {
+    flatLabel.textContent = isOther
+      ? '2. Помещение / квартира'
+      : '2. Квартира';
+  }
+
+  if (flat) {
+    flat.inputMode = isOther ? 'text' : 'numeric';
+    flat.placeholder = isOther
+      ? 'Например: офис 3, магазин, кв. 27'
+      : 'Например: 63';
+  }
+
+  if (isOther) {
     window.setTimeout(function() {
       input.focus();
     }, 80);
@@ -2416,6 +2439,172 @@ function fallbackCopyRequest(text) {
 document.addEventListener('DOMContentLoaded', function(){ setRecordType(getValue('recordType') || 'resident'); });
 
 
+
+/* ===== v0.21: отдельный раздел других адресов ===== */
+
+function getOtherAddressRequests() {
+  const all = CRM && CRM.data && Array.isArray(CRM.data.allRequests)
+    ? CRM.data.allRequests
+    : [];
+
+  return all.filter(function(req) {
+    return isOtherAddressRequest(req);
+  });
+}
+
+function getOtherAddressNames() {
+  const names = getOtherAddressRequests()
+    .map(function(req) {
+      return String(req.house || '').trim();
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(names)).sort(function(a, b) {
+    return a.localeCompare(b, 'ru', { numeric: true });
+  });
+}
+
+function setupOtherAddressesView() {
+  const select = document.getElementById('otherAddressSelect');
+  const controls = document.getElementById('otherAddressControls');
+  const empty = document.getElementById('otherAddressesEmpty');
+
+  if (!select || !controls || !empty) return;
+
+  const addresses = getOtherAddressNames();
+  const current = select.value;
+
+  if (!addresses.length) {
+    controls.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+
+  empty.hidden = true;
+  controls.hidden = false;
+
+  select.innerHTML = addresses.map(function(address) {
+    return '<option value="' + escapeHtml(address) + '">' +
+      escapeHtml(address) +
+      '</option>';
+  }).join('');
+
+  if (current && addresses.includes(current)) {
+    select.value = current;
+  }
+
+  renderOtherAddressCard();
+}
+
+function renderOtherAddressCard() {
+  const select = document.getElementById('otherAddressSelect');
+  const box = document.getElementById('otherAddressCard');
+
+  if (!select || !box) return;
+
+  const address = select.value;
+  const requests = getOtherAddressRequests()
+    .filter(function(req) {
+      return String(req.house || '') === address;
+    })
+    .sort(function(a, b) {
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+
+  if (!address) {
+    box.innerHTML = '';
+    return;
+  }
+
+  const active = requests.filter(function(req) {
+    return req.status !== 'Выполнено';
+  }).length;
+
+  const waiting = requests.filter(function(req) {
+    return req.status === 'Ожидает';
+  }).length;
+
+  const done = requests.filter(function(req) {
+    return req.status === 'Выполнено';
+  }).length;
+
+  const contacts = Array.from(new Map(
+    requests
+      .filter(function(req) {
+        return req.name || req.phone;
+      })
+      .map(function(req) {
+        const key = (req.name || '') + '|' + (req.phone || '');
+        return [key, { name: req.name || '', phone: req.phone || '' }];
+      })
+  ).values());
+
+  box.innerHTML = `
+    <div class="other-address-title-row">
+      <div>
+        <div class="other-address-title">📍 ${escapeHtml(address)}</div>
+        <div class="other-address-count">Всего заявок: ${requests.length}</div>
+      </div>
+      <button type="button" class="compact-action-btn" onclick="createOtherAddressRequest(${JSON.stringify(address).replace(/"/g, '&quot;')})">
+        ➕ Добавить
+      </button>
+    </div>
+
+    <div class="house-stats other-address-stats">
+      <div><strong>${active}</strong><span>Активных</span></div>
+      <div><strong>${waiting}</strong><span>Ожидают</span></div>
+      <div><strong>${done}</strong><span>Выполнено</span></div>
+      <div><strong>${contacts.length}</strong><span>Контактов</span></div>
+    </div>
+
+    ${contacts.length ? `
+      <h2 class="other-address-section-title">Контакты</h2>
+      <div class="other-address-contacts">
+        ${contacts.map(function(contact) {
+          return `
+            <div class="other-address-contact">
+              <span>${escapeHtml(contact.name || 'Без имени')}</span>
+              ${contact.phone
+                ? '<a href="tel:' + escapeHtml(contact.phone) + '">' +
+                  escapeHtml(formatPhone(contact.phone)) +
+                  '</a>'
+                : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    ` : ''}
+
+    <h2 class="other-address-section-title">Заявки по адресу</h2>
+    <div class="other-address-request-list requests-list">
+      ${requests.length
+        ? requests.map(function(req) {
+            return renderRequestCard(req, true);
+          }).join('')
+        : '<div class="empty-note">Заявок по этому адресу пока нет.</div>'}
+    </div>
+  `;
+}
+
+function createOtherAddressRequest(address) {
+  showView('new');
+
+  const house = document.getElementById('house');
+  if (house) house.value = '__OTHER__';
+
+  setValue('otherAddress', address || '');
+  toggleOtherAddressField();
+
+  window.setTimeout(function() {
+    const target = address
+      ? document.getElementById('flat')
+      : document.getElementById('otherAddress');
+
+    if (target) target.focus();
+  }, 120);
+}
+
+
 /* ===== v0.18: режим обхода дома ===== */
 CRM.walk = { active:false, house:'', startedAt:null, entries:[] };
 
@@ -2456,7 +2645,7 @@ function toggleWalkVoice(){ const SR=window.SpeechRecognition||window.webkitSpee
 document.addEventListener('DOMContentLoaded', function() {
   const params = new URLSearchParams(window.location.search);
   const requestedView = params.get('view');
-  if (requestedView && ['home','new','accepted','search','houses','walk'].includes(requestedView)) {
+  if (requestedView && ['home','new','accepted','search','houses','other','walk'].includes(requestedView)) {
     setTimeout(function() { showView(requestedView); }, 300);
   }
 });
