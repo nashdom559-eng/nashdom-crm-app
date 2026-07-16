@@ -2447,3 +2447,13 @@ async function shareWalkSummary(){ const text=buildWalkSummaryText(); if(navigat
 function showWalkStatus(text,isError){ const b=document.getElementById('walkVoiceStatus'); if(!b)return; b.textContent=text;b.classList.toggle('error',!!isError);b.style.display='block';clearTimeout(showWalkStatus.timer);showWalkStatus.timer=setTimeout(()=>b.style.display='none',2500); }
 let walkRecognition=null,walkVoiceActive=false;
 function toggleWalkVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){showWalkStatus('Голосовой ввод не поддерживается',true);return;} if(walkVoiceActive&&walkRecognition){walkRecognition.stop();return;} walkRecognition=new SR(); walkRecognition.lang='ru-RU'; walkRecognition.interimResults=false; walkRecognition.continuous=false; const btn=document.getElementById('walkVoiceBtn'); walkRecognition.onstart=()=>{walkVoiceActive=true;if(btn){btn.classList.add('listening');btn.textContent='⏹ Остановить';}showWalkStatus('Слушаю…',false);}; walkRecognition.onresult=e=>{const t=e.results[0][0].transcript.trim(); const d=document.getElementById('walkDescription'); if(d)d.value=t; showWalkStatus('Распознано',false);}; walkRecognition.onerror=e=>showWalkStatus('Ошибка микрофона: '+(e.error||'неизвестно'),true); walkRecognition.onend=()=>{walkVoiceActive=false;if(btn){btn.classList.remove('listening');btn.textContent='🎙 Говорить';}}; walkRecognition.start(); }
+
+
+/* v0.20 — запуск из ярлыков Windows */
+document.addEventListener('DOMContentLoaded', function() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedView = params.get('view');
+  if (requestedView && ['home','new','accepted','search','houses','walk'].includes(requestedView)) {
+    setTimeout(function() { showView(requestedView); }, 300);
+  }
+});
