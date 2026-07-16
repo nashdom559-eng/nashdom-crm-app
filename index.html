@@ -19,11 +19,11 @@
     <span>🔄 Доступна новая версия</span>
     <button type="button" onclick="applyAppUpdate()">Обновить</button>
   </div>
-  <div class="app">
+  <div class="app desktop-shell">
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.19 · другие адреса<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">PWA v0.20 · версия для компьютера<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -373,7 +373,7 @@
         <div id="walkSummary" hidden></div>
       </main>
     </section>
-    <nav class="bottom-nav">
+    <nav class="bottom-nav desktop-sidebar">
       <button class="active" data-view="home" onclick="showView('home')">
         <span class="nav-icon">🏠</span>
         <span>Сегодня</span>
