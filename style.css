@@ -808,3 +808,27 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
     grid-template-columns:repeat(3,minmax(0,1fr));
   }
 }
+
+/* v0.20.1 — исправление положения меню на компьютере */
+@media (min-width: 900px) {
+  .desktop-shell {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding-left: 260px !important;
+    padding-right: 24px !important;
+  }
+
+  .desktop-sidebar {
+    left: 18px !important;
+    right: auto !important;
+    transform: none !important;
+  }
+
+  .header,
+  .view {
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
