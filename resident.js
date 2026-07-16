@@ -114,3 +114,52 @@ form.addEventListener('submit', async event => {
     submitButton.textContent = 'Отправить заявку';
   }
 });
+
+
+function compressResidentPhoto(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Не удалось прочитать фотографию'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('Не удалось открыть фотографию'));
+      image.onload = () => {
+        const maxSide = 1280;
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.72), fileName: (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg' });
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadResidentPhoto(requestId, file) {
+  return compressResidentPhoto(file).then(photo => new Promise((resolve, reject) => {
+    const uploadId = 'resident_photo_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const iframe = document.createElement('iframe');
+    iframe.name = uploadId;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    const formEl = document.createElement('form');
+    formEl.method = 'POST'; formEl.action = API_URL; formEl.target = uploadId; formEl.style.display = 'none';
+    const values = { action:'uploadPhoto', uploadId, resident:'1', houseCode, requestId, kind:'before', fileName:photo.fileName, dataUrl:photo.dataUrl };
+    Object.entries(values).forEach(([name,value]) => { const input=document.createElement('input'); input.type='hidden'; input.name=name; input.value=value; formEl.appendChild(input); });
+    document.body.appendChild(formEl);
+    let timer;
+    const onMessage = event => {
+      const msg=event.data;
+      if(!msg || msg.source!=='nashdom-photo-upload' || !msg.payload || msg.payload.uploadId!==uploadId) return;
+      cleanup();
+      msg.payload.ok ? resolve(msg.payload.result) : reject(new Error(msg.payload.error || 'Ошибка загрузки'));
+    };
+    const cleanup=()=>{ clearTimeout(timer); window.removeEventListener('message',onMessage); formEl.remove(); iframe.remove(); };
+    window.addEventListener('message',onMessage);
+    timer=setTimeout(()=>{cleanup();reject(new Error('Превышено время загрузки'));},90000);
+    formEl.submit();
+  }));
+}
