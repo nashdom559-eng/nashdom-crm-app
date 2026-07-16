@@ -436,13 +436,16 @@ function renderDashboard() {
     })
     .map(function(section) {
       return `
-        <div class="journal-title">${section.title}</div>
-
-        ${section.items
-          .map(function(req) {
-            return renderRequestCard(req, true);
-          })
-          .join('')}
+        <section class="dashboard-section">
+          <div class="journal-title">${section.title}</div>
+          <div class="dashboard-section-list">
+            ${section.items
+              .map(function(req) {
+                return renderRequestCard(req, true);
+              })
+              .join('')}
+          </div>
+        </section>
       `;
     })
     .join('');
