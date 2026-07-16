@@ -11,7 +11,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-const CACHE_NAME = 'nashdom-crm-v1.0';
+const CACHE_NAME = 'nashdom-crm-v1.0.1-final';
 
 const APP_SHELL = [
   "./",
@@ -29,7 +29,9 @@ const APP_SHELL = [
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
   );
 });
 
