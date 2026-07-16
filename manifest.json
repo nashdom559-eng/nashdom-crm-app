@@ -8,12 +8,41 @@
   "scope": "./",
   "display": "standalone",
   "display_override": [
+    "window-controls-overlay",
     "standalone",
     "minimal-ui"
   ],
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#f3f4f6",
   "theme_color": "#2563eb",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Новая заявка",
+      "short_name": "Новая",
+      "url": "./?view=new",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Активные заявки",
+      "short_name": "Активные",
+      "url": "./?view=accepted",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "icon-192.png",
