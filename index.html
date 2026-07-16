@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.17.1 · общедомовые работы<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">PWA v0.19 · другие адреса<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -52,7 +52,14 @@
           <button type="button" class="record-type-btn" data-record-type="planned" onclick="setRecordType('planned')">🛠 Плановая работа</button>
         </div>
         <input id="recordType" type="hidden" value="resident">
-        <label>1. Дом</label><select id="house"></select>
+        <label>1. Дом</label><select id="house" onchange="toggleOtherAddressField()"></select>
+        <input
+          id="otherAddress"
+          class="other-address-input"
+          type="text"
+          placeholder="Введите полный адрес"
+          hidden
+        >
         <div id="residentFields">
           <label>2. Квартира</label><input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
           <div id="flatHistory" class="flat-history"></div><div id="contactSuggestions" class="contact-suggestions"></div>
@@ -93,6 +100,7 @@
           <button data-filter="active" onclick="setJournalFilter('active')">Активные</button>
           <button data-filter="waiting" onclick="setJournalFilter('waiting')">Ожидают</button>
           <button data-filter="done" onclick="setJournalFilter('done')">Выполненные</button>
+          <button data-filter="other" onclick="setJournalFilter('other')">Другие адреса</button>
         </div>
 
         <input
@@ -322,6 +330,49 @@
       </div>
     </div>
 
+
+    <section id="viewWalk" class="view">
+      <main class="card">
+        <h1>🚶 Обход дома</h1>
+        <div id="walkSetup">
+          <label>Выберите дом</label>
+          <select id="walkHouse" onchange="toggleWalkOtherAddress()"></select>
+          <input
+            id="walkOtherAddress"
+            class="other-address-input"
+            type="text"
+            placeholder="Введите полный адрес"
+            hidden
+          >
+          <button type="button" onclick="startWalkthrough()">▶ Начать обход</button>
+        </div>
+        <div id="walkActive" hidden>
+          <div class="walk-header">
+            <div><div class="walk-house" id="walkHouseTitle"></div><div class="walk-time" id="walkStartedAt"></div></div>
+            <span class="walk-counter" id="walkCounter">0</span>
+          </div>
+          <div class="walk-entry-card">
+            <label>Место / объект</label>
+            <select id="walkLocation" onchange="toggleWalkCustomLocation()">
+              <option value="">— Выберите —</option>
+              <option value="Подъезд 1">Подъезд 1</option><option value="Подъезд 2">Подъезд 2</option><option value="Подъезд 3">Подъезд 3</option><option value="Подъезд 4">Подъезд 4</option><option value="Подъезд 5">Подъезд 5</option>
+              <option value="Подвал">Подвал</option><option value="ИТП">ИТП</option><option value="Электрощитовая">Электрощитовая</option><option value="Узел учёта">Узел учёта</option><option value="Кровля">Кровля</option><option value="Чердак">Чердак</option><option value="Двор">Двор</option><option value="Фасад">Фасад</option><option value="Другое">Другое</option>
+            </select>
+            <input id="walkCustomLocation" type="text" placeholder="Укажите место" hidden>
+            <label>Замечание</label>
+            <textarea id="walkDescription" placeholder="Например: не работает доводчик"></textarea>
+            <button id="walkVoiceBtn" type="button" class="voice-btn" onclick="toggleWalkVoice()">🎙 Говорить</button>
+            <div id="walkVoiceStatus" class="voice-status"></div>
+            <label>Срок / дата выполнения</label>
+            <input id="walkPlanDate" type="datetime-local">
+            <button id="walkSaveBtn" type="button" onclick="saveWalkEntry()">✓ Сохранить замечание</button>
+          </div>
+          <div class="walk-session-list" id="walkSessionList"></div>
+          <button type="button" class="walk-finish-btn" onclick="finishWalkthrough()">■ Завершить обход</button>
+        </div>
+        <div id="walkSummary" hidden></div>
+      </main>
+    </section>
     <nav class="bottom-nav">
       <button class="active" data-view="home" onclick="showView('home')">
         <span class="nav-icon">🏠</span>
@@ -340,8 +391,10 @@
         <span>Журнал</span>
       </button>
       <button data-view="houses" onclick="showView('houses')">
-        <span class="nav-icon">🏢</span>
-        <span>Дома</span>
+        <span class="nav-icon">🏢</span><span>Дома</span>
+      </button>
+      <button data-view="walk" onclick="showView('walk')">
+        <span class="nav-icon">🚶</span><span>Обход</span>
       </button>
     </nav>
   </div>
