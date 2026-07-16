@@ -135,6 +135,7 @@ function loadData() {
       fillEditHouseSelect();
       setupHousesView();
       setupOtherAddressesView();
+      setupWalkthroughView();
       renderDashboard();
       renderResidentInbox();
       renderAcceptedRequests();
@@ -169,6 +170,18 @@ function showView(viewName) {
   );
 
   if (navButton) navButton.classList.add('active');
+
+  if (viewName === 'houses') {
+    setupHousesView();
+  }
+
+  if (viewName === 'other') {
+    setupOtherAddressesView();
+  }
+
+  if (viewName === 'walk') {
+    setupWalkthroughView();
+  }
 
   window.scrollTo(0, 0);
 }
@@ -359,12 +372,96 @@ function getWalkHouseValue() {
 }
 
 function saveRequest() {
-  const btn=document.getElementById('saveBtn'); const recordType=getValue('recordType')||'resident'; const isResident=recordType==='resident'; const isPlanned=recordType==='planned';
-  const data={house:getValue('house'),flat:isResident?getValue('flat'):getCommonLocationValue(),description:getValue('description'),name:isResident?getValue('name'):getValue('recordSource'),phone:isResident?getValue('phone'):'',planDate:getValue('planDate'),isEmergency:isPlanned?false:getChecked('isEmergency'),category:recordType==='common'?'Общее имущество':recordType==='planned'?'Плановая работа':'',source:recordType==='common'?'Вручную / Общее имущество':recordType==='planned'?'Вручную / Плановая работа':'Вручную'};
-  if(!data.house)return showStatus('Выбери дом',true); if(!data.flat)return showStatus(isResident?'Заполни квартиру':'Укажи место или объект',true); if(!data.description)return showStatus(isPlanned?'Опиши плановую работу':'Заполни заявку',true); if(isPlanned&&!data.planDate)return showStatus('Укажи срок плановой работы',true);
-  btn.disabled=true;btn.textContent='Сохраняю...';
-  apiCall('addRequest',data,function(result){showStatus(result.message||'Запись сохранена');clearNewRequestForm();setRecordType('resident');btn.disabled=false;btn.textContent='✓ Сохранено';loadData();setTimeout(function(){btn.textContent='Сохранить';},1000);},function(error){showStatus('Ошибка сохранения: '+error,true);btn.disabled=false;btn.textContent='Сохранить';});
+  const btn = document.getElementById('saveBtn');
+  const recordType = getValue('recordType') || 'resident';
+  const isResident = recordType === 'resident';
+  const isPlanned = recordType === 'planned';
+  const selectedHouse = getValue('house');
+  const houseValue = getSelectedHouseValue();
+
+  const data = {
+    house: houseValue,
+    flat: isResident ? getValue('flat') : getCommonLocationValue(),
+    description: getValue('description'),
+    name: isResident ? getValue('name') : getValue('recordSource'),
+    phone: isResident ? getValue('phone') : '',
+    planDate: getValue('planDate'),
+    isEmergency: isPlanned ? false : getChecked('isEmergency'),
+    category:
+      recordType === 'common'
+        ? 'Общее имущество'
+        : recordType === 'planned'
+          ? 'Плановая работа'
+          : '',
+    source:
+      selectedHouse === '__OTHER__'
+        ? 'Разовый адрес'
+        : recordType === 'common'
+          ? 'Вручную / Общее имущество'
+          : recordType === 'planned'
+            ? 'Вручную / Плановая работа'
+            : 'Вручную'
+  };
+
+  if (!data.house) {
+    return showStatus(
+      selectedHouse === '__OTHER__'
+        ? 'Введи адрес'
+        : 'Выбери дом',
+      true
+    );
+  }
+
+  if (!data.flat) {
+    return showStatus(
+      isResident
+        ? selectedHouse === '__OTHER__'
+          ? 'Укажи помещение, квартиру или объект'
+          : 'Заполни квартиру'
+        : 'Укажи место или объект',
+      true
+    );
+  }
+
+  if (!data.description) {
+    return showStatus(
+      isPlanned ? 'Опиши плановую работу' : 'Заполни заявку',
+      true
+    );
+  }
+
+  if (isPlanned && !data.planDate) {
+    return showStatus('Укажи срок плановой работы', true);
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Сохраняю...';
+
+  apiCall(
+    'addRequest',
+    data,
+    function(result) {
+      showStatus(result.message || 'Запись сохранена');
+      clearNewRequestForm();
+      setRecordType('resident');
+
+      btn.disabled = false;
+      btn.textContent = '✓ Сохранено';
+
+      loadData();
+
+      setTimeout(function() {
+        btn.textContent = 'Сохранить';
+      }, 1000);
+    },
+    function(error) {
+      showStatus('Ошибка сохранения: ' + error, true);
+      btn.disabled = false;
+      btn.textContent = 'Сохранить';
+    }
+  );
 }
+
 
 function renderDashboard() {
   const statsBox = document.getElementById('dashboardStats');
@@ -2608,13 +2705,58 @@ function createOtherAddressRequest(address) {
 /* ===== v0.18: режим обхода дома ===== */
 CRM.walk = { active:false, house:'', startedAt:null, entries:[] };
 
-function setupWalkthroughView(){
-  const s=document.getElementById('walkHouse'); if(!s||!CRM||!CRM.data)return;
-  const cur=s.value, houses=Array.isArray(CRM.data.houses)?CRM.data.houses:[];
-  s.innerHTML='<option value="">— Выберите дом —</option>'+houses.map(h=>'<option value="'+escapeHtml(h)+'">'+escapeHtml(h)+'</option>').join('');
-  if(cur&&houses.includes(cur))s.value=cur; renderWalkSession();
+function setupWalkthroughView() {
+  const select = document.getElementById('walkHouse');
+  if (!select || !CRM || !CRM.data) return;
+
+  const current = select.value;
+  const houses = Array.isArray(CRM.data.houses)
+    ? CRM.data.houses
+    : [];
+
+  select.innerHTML =
+    '<option value="">— Выберите дом —</option>' +
+    houses.map(function(house) {
+      return '<option value="' + escapeHtml(house) + '">' +
+        escapeHtml(house) +
+        '</option>';
+    }).join('') +
+    '<option value="__OTHER__">Другой адрес</option>';
+
+  const known = Array.from(select.options).some(function(option) {
+    return option.value === current;
+  });
+
+  if (current && known) {
+    select.value = current;
+  }
+
+  toggleWalkOtherAddress();
+  renderWalkSession();
 }
-function startWalkthrough(){ const h=getValue('walkHouse'); if(!h){alert('Выбери дом для обхода');return;} CRM.walk={active:true,house:h,startedAt:new Date(),entries:[]}; renderWalkSession(); }
+
+function startWalkthrough() {
+  const house = getWalkHouseValue();
+
+  if (!house) {
+    alert(
+      getValue('walkHouse') === '__OTHER__'
+        ? 'Введи адрес для обхода'
+        : 'Выбери дом для обхода'
+    );
+    return;
+  }
+
+  CRM.walk = {
+    active: true,
+    house: house,
+    startedAt: new Date(),
+    entries: []
+  };
+
+  renderWalkSession();
+}
+
 function finishWalkthrough(){ if(!CRM.walk.active)return; CRM.walk.active=false; renderWalkSession(); }
 function resetWalkthrough(){ CRM.walk={active:false,house:'',startedAt:null,entries:[]}; const s=document.getElementById('walkHouse'); if(s)s.value=''; clearWalkEntryForm(); renderWalkSession(); }
 function renderWalkSession(){
