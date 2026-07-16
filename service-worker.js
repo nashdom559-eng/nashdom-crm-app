@@ -11,7 +11,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-const CACHE_NAME = "nashdom-crm-v0.20-desktop-1";
+const CACHE_NAME = "nashdom-crm-v0.20.1-menu-fix-1";
 
 const APP_SHELL = [
   "./",
