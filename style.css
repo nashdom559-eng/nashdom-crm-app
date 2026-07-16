@@ -771,3 +771,40 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
 .journal-filters {
   grid-template-columns: repeat(2, 1fr);
 }
+
+
+/* v0.20 — версия для компьютера */
+@media (min-width: 900px) {
+  body { padding-bottom:0; background:#e5e7eb; }
+  .desktop-shell { max-width:1500px; min-height:100vh; margin:0 auto; padding:18px 18px 18px 260px; position:relative; }
+  .header { position:sticky; top:18px; z-index:50; margin-bottom:18px; padding:18px 22px; border-radius:18px; }
+  .logo { font-size:26px; }
+  .subtitle { font-size:14px; }
+  .card { min-height:calc(100vh - 150px); padding:24px; border-radius:18px; }
+  .desktop-sidebar {
+    position:fixed; top:18px; bottom:18px; left:max(18px, calc(50vw - 750px));
+    width:220px; max-width:none; display:flex; flex-direction:column; gap:8px;
+    padding:18px 12px; border:1px solid #d1d5db; border-radius:18px;
+    box-shadow:0 8px 24px rgba(0,0,0,.08); background:rgba(255,255,255,.98);
+  }
+  .desktop-sidebar button {
+    min-height:62px; width:100%; display:grid; grid-template-columns:42px 1fr;
+    align-items:center; text-align:left; padding:10px 14px; border-radius:12px; font-size:15px;
+  }
+  .desktop-sidebar .nav-icon { margin:0; font-size:27px; text-align:center; }
+  .desktop-sidebar button span:last-child { font-size:15px; }
+  .stats-grid { grid-template-columns:repeat(4,1fr); }
+  .journal-filters { grid-template-columns:repeat(5,minmax(120px,1fr)); }
+  .requests-list, #todayRequests, #acceptedRequests, #searchResults, #houseRequestList {
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start;
+  }
+  .record-type-grid { grid-template-columns:repeat(3,1fr); }
+  .house-stats { grid-template-columns:repeat(4,1fr); }
+  .modal-box { max-width:720px; }
+  .modal-box textarea { min-height:130px; }
+}
+@media (min-width:1250px) {
+  .requests-list, #todayRequests, #acceptedRequests, #searchResults, #houseRequestList {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
