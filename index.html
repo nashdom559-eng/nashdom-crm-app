@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">PWA v0.21 · другие адреса<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">PWA v0.21.1 · исправление адресов<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -61,7 +61,7 @@
           hidden
         >
         <div id="residentFields">
-          <label>2. Квартира</label><input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
+          <label id="flatLabel">2. Квартира</label><input id="flat" type="text" inputmode="numeric" enterkeyhint="next" placeholder="Например: 63">
           <div id="flatHistory" class="flat-history"></div><div id="contactSuggestions" class="contact-suggestions"></div>
         </div>
         <div id="commonFields" class="record-extra-fields" hidden>
