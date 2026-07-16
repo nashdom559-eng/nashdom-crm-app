@@ -977,3 +977,18 @@ button:disabled { background: #9ca3af; cursor: not-allowed; }
     font-size: 23px;
   }
 }
+
+
+/* v0.21.1 — исправление разовых адресов */
+#otherAddress:not([hidden]),
+#walkOtherAddress:not([hidden]) {
+  display: block !important;
+  margin-top: 10px;
+  border: 2px solid #8b5cf6;
+  background: #faf5ff;
+}
+
+#flat[inputmode="text"] {
+  border-color: #8b5cf6;
+  background: #faf5ff;
+}
