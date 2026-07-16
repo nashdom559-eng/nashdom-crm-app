@@ -23,6 +23,7 @@ function resetAccessKey() {
 const CRM = {
   data: {
     houses: [],
+    houseProfiles: {},
     contacts: [],
     acceptedRequests: [],
     allRequests: []
@@ -217,7 +218,7 @@ function fillHouseSelect() {
     }
   }
 
-  toggleOtherAddressField();
+  handleHouseChange();
 }
 
 
@@ -277,6 +278,55 @@ function fillEditHouseSelect() {
   });
 
   if (currentValue) select.value = currentValue;
+}
+
+
+function getHouseProfile(house) {
+  const profiles = CRM.data.houseProfiles || {};
+  return profiles[house] || { entrances: 5, itp: 1, extras: [] };
+}
+
+function buildHouseLocationOptions(house) {
+  const profile = getHouseProfile(house);
+  const options = [];
+
+  for (let i = 1; i <= Number(profile.entrances || 0); i++) {
+    options.push('Подъезд ' + i);
+  }
+
+  options.push('Подвал');
+
+  for (let i = 1; i <= Number(profile.itp || 0); i++) {
+    options.push(Number(profile.itp) > 1 ? 'ИТП №' + i : 'ИТП');
+  }
+
+  options.push('Электрощитовая', 'Узел учёта', 'Кровля', 'Чердак', 'Двор', 'Фасад');
+  (profile.extras || []).forEach(item => options.push(item));
+
+  return Array.from(new Set(options.filter(Boolean)));
+}
+
+function fillLocationSelect(selectId, house) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const current = select.value;
+  const options = buildHouseLocationOptions(house);
+  select.innerHTML = '<option value="">— Выберите —</option>' +
+    options.map(item => '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>').join('') +
+    '<option value="Другое">Другое</option>';
+  if (options.includes(current) || current === 'Другое') select.value = current;
+}
+
+function handleHouseChange() {
+  toggleOtherAddressField();
+  const house = getSelectedHouseValue();
+  fillLocationSelect('commonLocation', house);
+}
+
+function handleWalkHouseChange() {
+  toggleWalkOtherAddress();
+  const house = getWalkHouseValue();
+  fillLocationSelect('walkLocation', house);
 }
 
 function setRecordType(type) {
@@ -371,6 +421,111 @@ function getWalkHouseValue() {
   return selected;
 }
 
+
+function getSelectedFiles(inputId) {
+  const input = document.getElementById(inputId);
+  return input ? Array.from(input.files || []).slice(0, 3) : [];
+}
+
+function compressPhoto(file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onerror = function() { reject(new Error('Не удалось прочитать фото')); };
+    reader.onload = function() {
+      const image = new Image();
+      image.onerror = function() { reject(new Error('Не удалось открыть фото')); };
+      image.onload = function() {
+        const maxSide = 1280;
+        let width = image.width;
+        let height = image.height;
+        const scale = Math.min(1, maxSide / Math.max(width, height));
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+        resolve({
+          dataUrl: canvas.toDataURL('image/jpeg', 0.72),
+          fileName: String(file.name || 'photo.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+        });
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function uploadPhotoPayload(payload) {
+  return new Promise(function(resolve, reject) {
+    const uploadId = 'photo_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    const iframe = document.createElement('iframe');
+    iframe.name = uploadId;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = API_URL;
+    form.target = uploadId;
+    form.style.display = 'none';
+
+    const values = Object.assign({}, payload, { action: 'uploadPhoto', uploadId: uploadId });
+    Object.keys(values).forEach(function(key) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = values[key] == null ? '' : String(values[key]);
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+
+    let timer;
+    function cleanup() {
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      form.remove();
+      iframe.remove();
+    }
+    function onMessage(event) {
+      const message = event.data;
+      if (!message || message.source !== 'nashdom-photo-upload') return;
+      const response = message.payload || {};
+      if (response.uploadId !== uploadId) return;
+      cleanup();
+      if (response.ok) resolve(response.result);
+      else reject(new Error(response.error || 'Ошибка загрузки фото'));
+    }
+    window.addEventListener('message', onMessage);
+    timer = setTimeout(function() { cleanup(); reject(new Error('Загрузка фотографии превысила время ожидания')); }, 90000);
+    form.submit();
+  });
+}
+
+async function uploadRequestPhotos(files, rowNumber, requestId, kind) {
+  for (const file of files.slice(0, 3)) {
+    const compressed = await compressPhoto(file);
+    await uploadPhotoPayload({
+      token: getAccessKey(),
+      rowNumber: rowNumber,
+      requestId: requestId || '',
+      kind: kind,
+      fileName: compressed.fileName,
+      dataUrl: compressed.dataUrl
+    });
+  }
+}
+
+function renderPhotoGallery(items, title) {
+  if (!Array.isArray(items) || !items.length) return '';
+  return '<div class="photo-gallery-block"><div class="photo-gallery-title">' + title + '</div><div class="photo-gallery">' +
+    items.map(function(photo) {
+      const src = photo.thumb || photo.url || '';
+      const href = photo.url || src;
+      return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(src) + '" alt="Фото заявки"></a>';
+    }).join('') + '</div></div>';
+}
+
 function saveRequest() {
   const btn = document.getElementById('saveBtn');
   const recordType = getValue('recordType') || 'resident';
@@ -440,7 +595,13 @@ function saveRequest() {
   apiCall(
     'addRequest',
     data,
-    function(result) {
+    async function(result) {
+      const photos = getSelectedFiles('beforePhotos');
+      if (photos.length) {
+        btn.textContent = 'Загружаю фото...';
+        try { await uploadRequestPhotos(photos, result.rowNumber, result.id, 'before'); }
+        catch (error) { alert('Заявка сохранена, но фото не загрузились: ' + error.message); }
+      }
       showStatus(result.message || 'Запись сохранена');
       clearNewRequestForm();
       setRecordType('resident');
@@ -671,6 +832,10 @@ function renderRequestCard(req, showActions) {
       `
       : '';
 
+  const photoGalleries =
+    renderPhotoGallery(req.photosBefore, '📷 До') +
+    renderPhotoGallery(req.photosAfter, '📷 После');
+
   const actions =
     showActions && req.status !== 'Выполнено'
       ? req.isEmergency
@@ -764,6 +929,8 @@ function renderRequestCard(req, showActions) {
       <div class="request-desc">
         ${escapeHtml(req.description)}
       </div>
+
+      ${photoGalleries}
 
       <div class="request-footer">
         <span class="badge">
@@ -1258,6 +1425,8 @@ function openDoneModal(rowNumber) {
   CRM.state.currentDoneRowNumber = rowNumber;
 
   setValue('doneComment', '');
+  const afterPhotos = document.getElementById('afterPhotos');
+  if (afterPhotos) afterPhotos.value = '';
 
   document
     .getElementById('doneModal')
@@ -1272,31 +1441,30 @@ function closeDoneModal() {
     .classList.remove('active');
 }
 
-function confirmDoneRequest() {
-  const rowNumber =
-    CRM.state.currentDoneRowNumber;
-
+async function confirmDoneRequest() {
+  const rowNumber = CRM.state.currentDoneRowNumber;
   if (!rowNumber) return;
 
-  apiCall(
-    'closeRequest',
-    {
-      rowNumber: rowNumber,
-      comment: getValue('doneComment')
-    },
-    function(result) {
-      closeDoneModal();
-
-      showStatus(
-        result.message || 'Заявка выполнена'
-      );
-
-      loadData();
-    },
-    function(error) {
-      showStatus('Ошибка: ' + error, true);
+  const photos = getSelectedFiles('afterPhotos');
+  if (photos.length) {
+    try {
+      await uploadRequestPhotos(photos, rowNumber, '', 'after');
+    } catch (error) {
+      alert('Не удалось загрузить фото: ' + error.message);
+      return;
     }
-  );
+  }
+
+  apiCall('closeRequest', {
+    rowNumber: rowNumber,
+    comment: getValue('doneComment')
+  }, function(result) {
+    closeDoneModal();
+    showStatus(result.message || 'Заявка выполнена');
+    loadData();
+  }, function(error) {
+    showStatus('Ошибка: ' + error, true);
+  });
 }
 
 function attachFormEvents() {
@@ -1453,6 +1621,8 @@ function clearNewRequestForm() {
   setValue('commonLocationDetails', '');
   setValue('customLocation', '');
   setValue('recordSource', 'Обнаружено при обходе');
+  const beforePhotos = document.getElementById('beforePhotos');
+  if (beforePhotos) beforePhotos.value = '';
   setValue('otherAddress', '');
 
   const otherAddress = document.getElementById('otherAddress');
@@ -2731,7 +2901,7 @@ function setupWalkthroughView() {
     select.value = current;
   }
 
-  toggleWalkOtherAddress();
+  handleWalkHouseChange();
   renderWalkSession();
 }
 
