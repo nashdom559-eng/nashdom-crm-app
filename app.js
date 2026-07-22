@@ -335,7 +335,11 @@ function setRecordType(type) {
   setValue('recordType', nextType);
   document.querySelectorAll('.record-type-btn').forEach(function(button) { button.classList.toggle('active', button.dataset.recordType === nextType); });
   const residentFields=document.getElementById('residentFields'); const commonFields=document.getElementById('commonFields'); const residentContacts=document.getElementById('residentContactFields'); const emergencyBlock=document.getElementById('emergencyBlock'); const descriptionLabel=document.getElementById('descriptionLabel'); const planDateLabel=document.getElementById('planDateLabel'); const description=document.getElementById('description');
-  if(residentFields) residentFields.hidden=nextType!=='resident'; if(commonFields) commonFields.hidden=nextType==='resident'; if(residentContacts) residentContacts.hidden=nextType!=='resident'; if(emergencyBlock) emergencyBlock.hidden=nextType==='planned';
+  const contactNameLabel=document.getElementById('contactNameLabel'); const contactPhoneLabel=document.getElementById('contactPhoneLabel'); const commonContactHint=document.getElementById('commonContactHint');
+  if(residentFields) residentFields.hidden=nextType!=='resident'; if(commonFields) commonFields.hidden=nextType==='resident'; if(residentContacts) residentContacts.hidden=nextType==='planned'; if(emergencyBlock) emergencyBlock.hidden=nextType==='planned';
+  if(contactNameLabel) contactNameLabel.textContent=nextType==='common'?'4. Кто сообщил / как обращаться':'4. ФИО / как обращаться';
+  if(contactPhoneLabel) contactPhoneLabel.textContent=nextType==='common'?'5. Телефон сообщившего':'5. Телефон';
+  if(commonContactHint) commonContactHint.hidden=nextType!=='common';
   if(descriptionLabel) descriptionLabel.textContent=nextType==='planned'?'3. Что нужно сделать':nextType==='common'?'3. Неисправность / задача':'3. Заявка';
   if(planDateLabel) planDateLabel.textContent=nextType==='planned'?'4. Срок выполнения':'6. Плановый визит';
   if(description) description.placeholder=nextType==='planned'?'Например: заменить манометр на обратке':nextType==='common'?'Например: подтекает сальник насоса отопления':'Например: течёт стояк';
@@ -688,8 +692,8 @@ function saveRequest() {
     house: houseValue,
     flat: isResident ? getValue('flat') : getCommonLocationValue(),
     description: getValue('description'),
-    name: isResident ? getValue('name') : getValue('recordSource'),
-    phone: isResident ? getValue('phone') : '',
+    name: isPlanned ? getValue('recordSource') : (getValue('name') || (isResident ? '' : getValue('recordSource'))),
+    phone: isPlanned ? '' : getValue('phone'),
     planDate: getValue('planDate'),
     isEmergency: isPlanned ? false : getChecked('isEmergency'),
     category:
@@ -702,7 +706,7 @@ function saveRequest() {
       selectedHouse === '__OTHER__'
         ? 'Разовый адрес'
         : recordType === 'common'
-          ? 'Вручную / Общее имущество'
+          ? 'Вручную / Общее имущество / ' + getValue('recordSource')
           : recordType === 'planned'
             ? 'Вручную / Плановая работа'
             : 'Вручную'
@@ -1131,9 +1135,10 @@ function renderManagementActions(req) {
     : '';
 
   return `<div class="management-actions">
-    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Карточка</button>
+    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Изменить</button>
     <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">👷 Исполнитель</button>
     <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Поделиться</button>
+    ${req.phone ? `<button class="manage-btn contact-save-btn" onclick="saveRequestContact(${Number(req.rowNumber)})">👤 В контакты</button>` : ''}
     ${extra}
     <button class="manage-btn archive-btn" onclick="archiveRequestUi(${Number(req.rowNumber)})">📦 Архив</button>
     <button class="manage-btn delete-btn" onclick="trashRequestUi(${Number(req.rowNumber)})">🗑 Корзина</button>
@@ -1447,6 +1452,8 @@ function openEmergencyModal(rowNumber) {
 
 function closeEmergencyModal() {
   CRM.state.currentEmergencyRowNumber = null;
+  const photos = document.getElementById('emergencyPhotos');
+  if (photos) photos.value = '';
 
   const modal = document.getElementById('emergencyModal');
   if (modal) modal.classList.remove('active');
@@ -1455,6 +1462,7 @@ function closeEmergencyModal() {
 function confirmEmergencyEvent() {
   const rowNumber = CRM.state.currentEmergencyRowNumber;
   if (!rowNumber) return;
+  const photos = getSelectedFiles('emergencyPhotos');
 
   apiCall(
     'addEmergencyEvent',
@@ -1463,10 +1471,18 @@ function confirmEmergencyEvent() {
       stage: getValue('emergencyStage'),
       comment: getValue('emergencyComment')
     },
-    function(result) {
-      closeEmergencyModal();
-      showStatus(result.message || 'Этап аварии записан');
-      loadData();
+    async function(result) {
+      try {
+        if (photos.length) {
+          showStatus('Этап записан, загружаю фото...');
+          await uploadRequestPhotos(photos, rowNumber, '', 'after');
+        }
+        closeEmergencyModal();
+        showStatus(photos.length ? 'Этап аварии и фото сохранены' : (result.message || 'Этап аварии записан'));
+        loadData();
+      } catch (error) {
+        showStatus('Этап записан, но фото не загрузились: ' + error.message, true);
+      }
     },
     function(error) {
       showStatus('Ошибка: ' + error, true);
@@ -2789,27 +2805,53 @@ function formatPlanForShare(value) {
   return day + '.' + month + '.' + year + ' в ' + hours + ':' + minutes;
 }
 
+function getRequestPhotoUrls(req) {
+  return [].concat(req.photosBefore || [], req.photosAfter || [])
+    .map(function(photo) { return photo && (photo.url || photo.thumb); })
+    .filter(Boolean);
+}
+
 function buildRequestShareText(req) {
+  const photoUrls = getRequestPhotoUrls(req);
   const lines = [
     'ЗАЯВКА ' + (req.id || ''),
     'Дом: ' + (req.house || ''),
     req.flat ? (isCommonPropertyRequest(req) ? 'Место: ' : 'Квартира: ') + req.flat : '',
     getRecordTypeLabel(req) ? 'Тип: ' + getRecordTypeLabel(req).replace(/^[^ ]+ /, '') : '',
-    req.name ? (isCommonPropertyRequest(req) ? 'Источник: ' : 'Контакт: ') + req.name : '',
+    req.name ? (isCommonPropertyRequest(req) ? 'Сообщил: ' : 'Контакт: ') + req.name : '',
     req.phone ? 'Телефон: ' + req.phone : '',
     req.priority ? 'Категория: ' + req.priority : '',
     req.executor ? 'Исполнитель: ' + req.executor : '',
     req.planDate ? 'Плановый визит: ' + formatPlanForShare(req.planDate) : '',
     '',
-    req.description || ''
+    req.description || '',
+    photoUrls.length ? '\nФотографии:\n' + photoUrls.join('\n') : ''
   ];
 
   return lines.filter(function(line, index) {
-    return line !== '' || index === lines.length - 2;
+    return line !== '' || index === lines.length - 3;
   }).join('\n').trim();
 }
 
-function shareRequest(rowNumber) {
+async function loadShareFiles(req) {
+  const photos = [].concat(req.photosBefore || [], req.photosAfter || []).filter(Boolean).slice(0, 6);
+  const files = [];
+  for (let i = 0; i < photos.length; i++) {
+    const url = photos[i].url || photos[i].thumb;
+    if (!url) continue;
+    try {
+      const response = await fetch(url, { mode: 'cors' });
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      files.push(new File([blob], 'zayavka-' + (req.id || 'photo') + '-' + (i + 1) + '.jpg', { type: blob.type || 'image/jpeg' }));
+    } catch (error) {
+      console.warn('Не удалось подготовить фото для отправки', error);
+    }
+  }
+  return files;
+}
+
+async function shareRequest(rowNumber) {
   const req = findRequestByRow(rowNumber);
   if (!req) {
     alert('Заявка не найдена');
@@ -2817,17 +2859,18 @@ function shareRequest(rowNumber) {
   }
 
   const text = buildRequestShareText(req);
-
   if (navigator.share) {
-    navigator.share({
-      title: 'Заявка ' + (req.id || ''),
-      text: text
-    }).catch(function(error) {
-      if (error && error.name !== 'AbortError') {
-        fallbackCopyRequest(text);
+    try {
+      const files = await loadShareFiles(req);
+      const shareData = { title: 'Заявка ' + (req.id || ''), text: text };
+      if (files.length && navigator.canShare && navigator.canShare({ files: files })) {
+        shareData.files = files;
       }
-    });
-    return;
+      await navigator.share(shareData);
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
   }
 
   fallbackCopyRequest(text);
@@ -2836,15 +2879,37 @@ function shareRequest(rowNumber) {
 function fallbackCopyRequest(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text)
-      .then(function() {
-        alert('Текст заявки скопирован');
-      })
-      .catch(function() {
-        prompt('Скопируй заявку:', text);
-      });
+      .then(function() { alert('Текст заявки и ссылки на фото скопированы'); })
+      .catch(function() { prompt('Скопируй заявку:', text); });
   } else {
     prompt('Скопируй заявку:', text);
   }
+}
+
+function saveRequestContact(rowNumber) {
+  const req = findRequestByRow(rowNumber);
+  if (!req || !req.phone) {
+    alert('В заявке нет телефона');
+    return;
+  }
+  const name = (req.name || ('Заявка ' + (req.id || 'НашДом'))).replace(/[\r\n;]+/g, ' ').trim();
+  const note = ['НашДом CRM', req.house || '', req.flat || '', req.description || ''].filter(Boolean).join(' — ').replace(/[\r\n]+/g, ' ');
+  const vcard = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    'FN:' + name,
+    'TEL;TYPE=CELL:' + String(req.phone).replace(/[^+\d]/g, ''),
+    'NOTE:' + note.replace(/;/g, '\\;'),
+    'END:VCARD'
+  ].join('\r\n');
+  const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = name.replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, '_') + '.vcf';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(function() { URL.revokeObjectURL(link.href); }, 1000);
 }
 
 

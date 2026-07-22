@@ -10,8 +10,8 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>НашДом CRM</title>
 
-  <link rel="manifest" href="./manifest.json?v=1.0.1">
-  <link rel="stylesheet" href="./style.css?v=1.0.1">
+  <link rel="manifest" href="./manifest.json?v=1.1.0">
+  <link rel="stylesheet" href="./style.css?v=1.1.0">
 </head>
 
 <body>
@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.0.1 Final<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.1 Beta<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -78,7 +78,13 @@
         <label>Фотографии «до» (до 3)</label>
         <input id="beforePhotos" class="photo-input" type="file" accept="image/*" multiple>
         <label id="emergencyBlock" class="emergency-toggle"><input id="isEmergency" type="checkbox"><span>🚨 Аварийная заявка</span></label>
-        <div id="residentContactFields"><label>4. ФИО / как обращаться</label><input id="name" type="text" placeholder="Например: Иванов Сергей"><label>5. Телефон</label><input id="phone" type="tel" placeholder="Например: 89123456789"></div>
+        <div id="residentContactFields">
+          <label id="contactNameLabel">4. ФИО / как обращаться</label>
+          <input id="name" type="text" placeholder="Например: Иванов Сергей">
+          <label id="contactPhoneLabel">5. Телефон</label>
+          <input id="phone" type="tel" placeholder="Например: 89123456789">
+          <div id="commonContactHint" class="field-hint" hidden>Для общедомовой заявки можно указать жителя, председателя или другого человека, который сообщил о проблеме.</div>
+        </div>
         <label id="planDateLabel">6. Плановый визит</label><input id="planDate" type="datetime-local">
         <button id="saveBtn" onclick="saveRequest()">Сохранить</button>
       </main>
@@ -232,6 +238,9 @@
 
         <label>Комментарий</label>
         <textarea id="emergencyComment" placeholder="Например: перекрыт стояк ХВС, ждём доступ в кв. 31"></textarea>
+
+        <label>Фотографии этапа (до 3)</label>
+        <input id="emergencyPhotos" class="photo-input" type="file" accept="image/*" multiple>
 
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeEmergencyModal()">Отмена</button>
@@ -404,39 +413,30 @@
         <div id="walkSummary" hidden></div>
       </main>
     </section>
+    <section id="viewMore" class="view">
+      <main class="card">
+        <h1>Ещё</h1>
+        <div class="more-menu-grid">
+          <button type="button" onclick="showView('houses')"><span>🏢</span><strong>Дома</strong><small>Карточки домов и отчёты</small></button>
+          <button type="button" onclick="showView('other')"><span>📍</span><strong>Другие адреса</strong><small>Разовые заявки вне списка домов</small></button>
+          <button type="button" onclick="showView('walk')"><span>🚶</span><strong>Обход</strong><small>Замечания по дому во время обхода</small></button>
+        </div>
+      </main>
+    </section>
+
     <nav class="bottom-nav desktop-sidebar">
-      <button class="active" data-view="home" onclick="showView('home')">
-        <span class="nav-icon">🏠</span>
-        <span>Сегодня</span>
-      </button>
-      <button data-view="new" onclick="showView('new')">
-        <span class="nav-icon">➕</span>
-        <span>Новая</span>
-      </button>
-      <button data-view="accepted" onclick="showView('accepted')">
-        <span class="nav-icon">📋</span>
-        <span>Активные</span>
-      </button>
-      <button data-view="search" onclick="showView('search')">
-        <span class="nav-icon">🔍</span>
-        <span>Журнал</span>
-      </button>
-      <button data-view="houses" onclick="showView('houses')">
-        <span class="nav-icon">🏢</span><span>Дома</span>
-      </button>
-      <button data-view="other" onclick="showView('other')">
-        <span class="nav-icon">📍</span><span>Другие адреса</span>
-      </button>
-      <button data-view="walk" onclick="showView('walk')">
-        <span class="nav-icon">🚶</span><span>Обход</span>
-      </button>
+      <button class="active" data-view="home" onclick="showView('home')"><span class="nav-icon">🏠</span><span>Сегодня</span></button>
+      <button data-view="new" onclick="showView('new')"><span class="nav-icon">➕</span><span>Новая</span></button>
+      <button data-view="accepted" onclick="showView('accepted')"><span class="nav-icon">📋</span><span>Активные</span></button>
+      <button data-view="search" onclick="showView('search')"><span class="nav-icon">🔍</span><span>Журнал</span></button>
+      <button data-view="more" onclick="showView('more')"><span class="nav-icon">☰</span><span>Ещё</span></button>
     </nav>
   </div>
 
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzVrcm54k04A7vSHsUedjAQJ5yVynVeLpXXs4DFNW4d0mT7OpQdwNbUnvGoeI6L3bSrvA/exec';
   </script>
-  <script src="./app.js?v=1.0.1"></script>
+  <script src="./app.js?v=1.1.0"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>
