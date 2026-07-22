@@ -2892,24 +2892,44 @@ function saveRequestContact(rowNumber) {
     alert('В заявке нет телефона');
     return;
   }
-  const name = (req.name || ('Заявка ' + (req.id || 'НашДом'))).replace(/[\r\n;]+/g, ' ').trim();
-  const note = ['НашДом CRM', req.house || '', req.flat || '', req.description || ''].filter(Boolean).join(' — ').replace(/[\r\n]+/g, ' ');
+
+  const cleanPart = function(value) {
+    return String(value || '')
+      .replace(/[\r\n;]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+  const escapeVCard = function(value) {
+    return cleanPart(value)
+      .replace(/\\/g, '\\\\')
+      .replace(/,/g, '\\,')
+      .replace(/;/g, '\\;');
+  };
+
+  const house = cleanPart(req.house) || 'Адрес не указан';
+  const flat = cleanPart(req.flat);
+  const person = cleanPart(req.name) || 'Имя не указано';
+  const location = flat ? ('кв. ' + flat) : 'общее имущество';
+  const contactName = house + ' — ' + location + ' — ' + person;
+  const phone = String(req.phone).replace(/[^+\d]/g, '');
+
   const vcard = [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    'FN:' + name,
-    'TEL;TYPE=CELL:' + String(req.phone).replace(/[^+\d]/g, ''),
-    'NOTE:' + note.replace(/;/g, '\\;'),
+    'FN:' + escapeVCard(contactName),
+    'TEL;TYPE=CELL:' + phone,
     'END:VCARD'
   ].join('\r\n');
+
   const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = name.replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, '_') + '.vcf';
+  const objectUrl = URL.createObjectURL(blob);
+  link.href = objectUrl;
+  link.download = contactName.replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, '_') + '.vcf';
   document.body.appendChild(link);
   link.click();
   link.remove();
-  setTimeout(function() { URL.revokeObjectURL(link.href); }, 1000);
+  setTimeout(function() { URL.revokeObjectURL(objectUrl); }, 1000);
 }
 
 
