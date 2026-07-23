@@ -1201,7 +1201,7 @@ function renderRequestCard(req, showActions) {
       : '';
 
   return `
-    <div class="request-card ${statusClass}">
+    <div class="request-card ${statusClass}" data-row-number="${Number(req.rowNumber)}">
       <div class="request-top">
         <div class="request-address">
           🏠 ${escapeHtml(req.house)}${flat}
@@ -2355,6 +2355,7 @@ function jsArg(value) {
 
 function renderHouseRequestItem(r) {
   const comment = r.comment || r.doneComment || r.executionComment || '';
+  const photosCount = getRequestPhotoUrls(r).length;
   return `
     <div class="house-request-item">
       <div class="house-request-head">
@@ -2364,7 +2365,13 @@ function renderHouseRequestItem(r) {
       <div class="house-request-text">${escapeHtml(r.description || '')}</div>
       <div class="house-request-foot">
         <span class="house-status">${escapeHtml(r.status || 'Принято')}</span>
+        ${r.executor ? `<span>👷 ${escapeHtml(r.executor)}</span>` : ''}
+        ${photosCount ? `<span>📷 ${photosCount}</span>` : ''}
         ${comment ? `<span>${escapeHtml(comment)}</span>` : ''}
+      </div>
+      <div class="house-request-actions">
+        <button type="button" onclick="openRequestFromHistory(${Number(r.rowNumber)})">👁 Открыть</button>
+        <button type="button" onclick="repeatRequestFromHistory(${Number(r.rowNumber)})">↻ Повторить</button>
       </div>
     </div>`;
 }
@@ -2428,10 +2435,23 @@ function renderFlatCard() {
   const requests = (CRM.data.allRequests || []).filter(r =>
     String(r.house || '') === house && String(r.flat || '') === flat);
   const active = requests.filter(r => !houseRequestDone(r));
+  const emergencyCount = requests.filter(houseRequestEmergency).length;
+  const latest = requests.slice().sort((a, b) => {
+    const da = new Date(a.date || a.createdAt || 0).getTime() || 0;
+    const db = new Date(b.date || b.createdAt || 0).getTime() || 0;
+    return db - da;
+  })[0] || null;
+  const lastExecutor = requests.slice().reverse().find(r => String(r.executor || '').trim());
 
   box.innerHTML = `
     <div class="flat-card">
       <div class="flat-card-title">${escapeHtml(house)}, кв. ${escapeHtml(flat)}</div>
+      <div class="flat-summary-grid">
+        <div><strong>${requests.length}</strong><span>Всего заявок</span></div>
+        <div><strong>${emergencyCount}</strong><span>Аварий</span></div>
+        <div><strong>${latest ? escapeHtml(crmDate(latest.date || latest.createdAt || '')) : '—'}</strong><span>Последняя</span></div>
+        <div><strong>${lastExecutor ? escapeHtml(lastExecutor.executor) : '—'}</strong><span>Последний исполнитель</span></div>
+      </div>
       <h3>Жильцы / контакты</h3>
       <div class="flat-contacts">
         ${contacts.length ? contacts.map(c => `
@@ -2468,6 +2488,51 @@ function createRequestForFlat(house, flat) {
     if (f) { f.value = flat; f.dispatchEvent(new Event('input', {bubbles:true})); }
     setTimeout(() => { if (d) d.focus(); }, 180);
   }, 80);
+}
+
+function repeatRequestFromHistory(rowNumber) {
+  const req = findRequestByRow(rowNumber);
+  if (!req) return;
+
+  showView('new');
+  setTimeout(function() {
+    const values = {
+      house: req.house || '',
+      flat: req.flat || '',
+      name: req.name || '',
+      phone: req.phone || ''
+    };
+    Object.keys(values).forEach(function(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = values[id];
+      el.dispatchEvent(new Event(id === 'house' ? 'change' : 'input', {bubbles:true}));
+    });
+    const description = document.getElementById('description');
+    if (description) {
+      description.value = '';
+      description.focus();
+      description.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+    showStatus('Данные квартиры и контакта перенесены. Введите новую заявку.');
+  }, 100);
+}
+
+function openRequestFromHistory(rowNumber) {
+  CRM.state.journalFilter = 'all';
+  showView('journal');
+  const search = document.getElementById('searchInput');
+  const req = findRequestByRow(rowNumber);
+  if (search) search.value = req && req.id ? req.id : '';
+  runSearch();
+
+  setTimeout(function() {
+    const card = document.querySelector('.request-card[data-row-number="' + Number(rowNumber) + '"]');
+    if (!card) return;
+    card.scrollIntoView({behavior:'smooth', block:'center'});
+    card.classList.add('request-card-highlight');
+    setTimeout(function(){ card.classList.remove('request-card-highlight'); }, 2200);
+  }, 120);
 }
 
 document.addEventListener('DOMContentLoaded', setupHousesView);

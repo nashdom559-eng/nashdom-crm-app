@@ -1135,3 +1135,15 @@ button.is-saving::before {
 .offline-indicator{position:fixed;z-index:10000;top:0;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:0 0 12px 12px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.18);max-width:92vw;text-align:center}
 .offline-indicator.offline{background:#7c2d12;color:#fff}
 .offline-indicator.pending{background:#f59e0b;color:#111827}
+
+/* v1.3.0 — история квартиры */
+.flat-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 18px}
+.flat-summary-grid>div{background:var(--card-bg,#fff);border:1px solid rgba(120,130,150,.18);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.flat-summary-grid strong{font-size:16px;line-height:1.25}
+.flat-summary-grid span{font-size:12px;opacity:.7}
+.house-request-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.house-request-actions button{border:0;border-radius:11px;padding:10px 8px;font-weight:700;cursor:pointer}
+.house-request-actions button:first-child{background:#e9eefb;color:#243b6b}
+.house-request-actions button:last-child{background:#e8f7ee;color:#1b6a3b}
+.request-card-highlight{outline:3px solid rgba(46,125,246,.55);box-shadow:0 0 0 8px rgba(46,125,246,.12);transition:.25s}
+@media (max-width:520px){.flat-summary-grid{grid-template-columns:1fr 1fr}.flat-summary-grid strong{font-size:14px}}
