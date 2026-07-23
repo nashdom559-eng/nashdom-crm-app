@@ -1271,6 +1271,9 @@ function renderManagementActions(req) {
   }
 
   const isDone = req.status === 'Выполнено';
+  const apartmentHistoryButton = (!isCommonPropertyRequest(req) && req.house && req.flat)
+    ? `<button class="manage-btn history-btn" onclick="openApartmentHistory('${escapeJs(req.house)}', '${escapeJs(req.flat)}')">🏠 История квартиры</button>`
+    : '';
   const extra = isDone
     ? `<button class="manage-btn share-report-btn" onclick="shareCompletionReport(${Number(req.rowNumber)})">✅ Отправить отчёт</button>
        <button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">↩ Возобновить</button>`
@@ -1280,6 +1283,7 @@ function renderManagementActions(req) {
     <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Редактировать</button>
     <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">👷 Исполнитель</button>
     <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Отправить заявку</button>
+    ${apartmentHistoryButton}
     ${extra}
     ${req.phone ? `<button class="manage-btn contact-save-btn" onclick="saveRequestContact(${Number(req.rowNumber)})">👤 В контакты</button>` : ''}
     <button class="manage-btn archive-btn" onclick="archiveRequestUi(${Number(req.rowNumber)})">📦 Архив</button>
@@ -2476,6 +2480,29 @@ function renderFlatCard() {
       </div>
     </div>`;
   box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function openApartmentHistory(house, flat) {
+  showView('houses');
+
+  window.setTimeout(function() {
+    setupHousesView();
+
+    const houseSelect = document.getElementById('houseCardSelect');
+    if (!houseSelect) return;
+
+    houseSelect.value = house;
+    renderHouseCard();
+
+    window.setTimeout(function() {
+      const flatSelect = document.getElementById('houseFlatSelect');
+      if (!flatSelect) return;
+
+      flatSelect.value = flat;
+      renderFlatCard();
+      showStatus('Открыта история: ' + house + ', кв. ' + flat);
+    }, 50);
+  }, 50);
 }
 
 function createRequestForFlat(house, flat) {
