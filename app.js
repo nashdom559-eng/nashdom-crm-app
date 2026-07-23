@@ -2917,14 +2917,16 @@ function saveRequestContact(rowNumber) {
   const vcard = [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    'N;CHARSET=UTF-8:;' + escapedName + ';;;',
-    'FN;CHARSET=UTF-8:' + escapedName,
+    'FN:' + escapedName,
+    'N:' + escapedName + ';;;;',
     'TEL;TYPE=CELL:' + phone,
-    'END:VCARD'
+    'END:VCARD',
+    ''
   ].join('\r\n');
 
-  // BOM помогает некоторым Android-приложениям корректно распознавать UTF-8.
-  const blob = new Blob(['\uFEFF' + vcard], { type: 'text/vcard;charset=utf-8' });
+  // Без BOM: Samsung Contacts может считать BOM частью первой строки
+  // и отклонить корректный vCard как нечитаемый.
+  const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
   const link = document.createElement('a');
   const objectUrl = URL.createObjectURL(blob);
   link.href = objectUrl;
