@@ -2914,19 +2914,21 @@ function saveRequestContact(rowNumber) {
   const phone = String(req.phone).replace(/[^+\d]/g, '');
   const escapedName = escapeVCard(contactName);
 
+  // Samsung Contacts надёжнее импортирует простой vCard 2.1.
+  // Полное отображаемое имя кладём в FN, а в N оставляем пустую фамилию
+  // и записываем всю строку в поле имени. Так Android не переставляет
+  // имя жильца в начало и не считает строку N повреждённой.
   const vcard = [
     'BEGIN:VCARD',
-    'VERSION:3.0',
-    'FN:' + escapedName,
-    'N:' + escapedName + ';;;;',
-    'TEL;TYPE=CELL:' + phone,
+    'VERSION:2.1',
+    'N;CHARSET=UTF-8:;' + escapedName + ';;;',
+    'FN;CHARSET=UTF-8:' + escapedName,
+    'TEL;CELL:' + phone,
     'END:VCARD',
     ''
   ].join('\r\n');
 
-  // Без BOM: Samsung Contacts может считать BOM частью первой строки
-  // и отклонить корректный vCard как нечитаемый.
-  const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
+  const blob = new Blob([vcard], { type: 'text/x-vcard;charset=utf-8' });
   const link = document.createElement('a');
   const objectUrl = URL.createObjectURL(blob);
   link.href = objectUrl;
