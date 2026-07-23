@@ -1135,7 +1135,7 @@ function renderManagementActions(req) {
     : '';
 
   return `<div class="management-actions">
-    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Изменить</button>
+    <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Редактировать</button>
     <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">👷 Исполнитель</button>
     <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Поделиться</button>
     ${req.phone ? `<button class="manage-btn contact-save-btn" onclick="saveRequestContact(${Number(req.rowNumber)})">👤 В контакты</button>` : ''}
@@ -2908,20 +2908,23 @@ function saveRequestContact(rowNumber) {
 
   const house = cleanPart(req.house) || 'Адрес не указан';
   const flat = cleanPart(req.flat);
-  const person = cleanPart(req.name) || 'Имя не указано';
-  const location = flat ? ('кв. ' + flat) : 'общее имущество';
-  const contactName = house + ' — ' + location + ' — ' + person;
+  const person = cleanPart(req.name);
+  const addressPart = flat ? (house + ', кв. ' + flat) : house;
+  const contactName = person ? (addressPart + ' — ' + person) : addressPart;
   const phone = String(req.phone).replace(/[^+\d]/g, '');
+  const escapedName = escapeVCard(contactName);
 
   const vcard = [
     'BEGIN:VCARD',
     'VERSION:3.0',
-    'FN:' + escapeVCard(contactName),
+    'N;CHARSET=UTF-8:;' + escapedName + ';;;',
+    'FN;CHARSET=UTF-8:' + escapedName,
     'TEL;TYPE=CELL:' + phone,
     'END:VCARD'
   ].join('\r\n');
 
-  const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8' });
+  // BOM помогает некоторым Android-приложениям корректно распознавать UTF-8.
+  const blob = new Blob(['\uFEFF' + vcard], { type: 'text/vcard;charset=utf-8' });
   const link = document.createElement('a');
   const objectUrl = URL.createObjectURL(blob);
   link.href = objectUrl;
