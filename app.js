@@ -119,8 +119,48 @@ function apiCall(action, payload, onSuccess, onError) {
   document.body.appendChild(script);
 }
 
-function loadData() {
-  showStatus('Загружаю данные...');
+function beginActionFeedback(button, busyText, slowText) {
+  if (!button || button.dataset.busy === '1') return false;
+
+  button.dataset.busy = '1';
+  button.dataset.originalText = button.textContent || '';
+  button.disabled = true;
+  button.classList.add('is-saving');
+  button.textContent = busyText || 'Сохраняю…';
+  showStatus(busyText || 'Сохраняю…');
+
+  const timer = window.setTimeout(function() {
+    if (button.dataset.busy === '1') {
+      showStatus(slowText || 'Сервер отвечает медленнее обычного. Сохранение продолжается — повторно нажимать не нужно.');
+    }
+  }, 2500);
+
+  button.dataset.slowTimer = String(timer);
+  return true;
+}
+
+function endActionFeedback(button, finalText, resetDelay) {
+  if (!button) return;
+  const timer = Number(button.dataset.slowTimer || 0);
+  if (timer) window.clearTimeout(timer);
+
+  button.dataset.busy = '0';
+  button.disabled = false;
+  button.classList.remove('is-saving');
+
+  const originalText = button.dataset.originalText || 'Сохранить';
+  button.textContent = finalText || originalText;
+
+  if (finalText) {
+    window.setTimeout(function() {
+      if (button.dataset.busy !== '1') button.textContent = originalText;
+    }, typeof resetDelay === 'number' ? resetDelay : 1200);
+  }
+}
+
+function loadData(options) {
+  const silent = Boolean(options && options.silent);
+  if (!silent) showStatus('Загружаю данные...');
 
   apiCall(
     'getAppData',
@@ -143,7 +183,7 @@ function loadData() {
       renderAcceptedRequests();
       runSearch();
 
-      showStatus('');
+      if (!silent) showStatus('');
     },
     function(error) {
       showStatus('Ошибка загрузки: ' + error, true);
@@ -813,8 +853,11 @@ function saveRequest() {
     return showStatus('Укажи срок плановой работы', true);
   }
 
-  btn.disabled = true;
-  btn.textContent = 'Сохраняю...';
+  if (!beginActionFeedback(
+    btn,
+    'Сохраняю заявку…',
+    'Google Таблицы отвечают медленнее обычного. Заявка сохраняется — повторно нажимать не нужно.'
+  )) return;
 
   apiCall(
     'addRequest',
@@ -839,19 +882,12 @@ function saveRequest() {
       clearNewRequestForm();
       setRecordType('resident');
 
-      btn.disabled = false;
-      btn.textContent = '✓ Сохранено';
-
-      loadData();
-
-      setTimeout(function() {
-        btn.textContent = 'Сохранить';
-      }, 1000);
+      endActionFeedback(btn, '✓ Сохранено');
+      loadData({ silent: true });
     },
     function(error) {
       showStatus('Ошибка сохранения: ' + error, true);
-      btn.disabled = false;
-      btn.textContent = 'Сохранить';
+      endActionFeedback(btn);
     }
   );
 }
@@ -1395,6 +1431,8 @@ function closeEditModal() {
 function confirmEditRequest() {
   const rowNumber = CRM.state.currentEditRowNumber;
   if (!rowNumber) return;
+  const btn = document.getElementById('editSaveBtn');
+  if (btn && btn.dataset.busy === '1') return;
 
   const data = {
     rowNumber: rowNumber,
@@ -1412,31 +1450,45 @@ function confirmEditRequest() {
     return;
   }
 
+  if (!beginActionFeedback(
+    btn,
+    'Сохраняю изменения…',
+    'Google Таблицы отвечают медленнее обычного. Изменения сохраняются — повторно нажимать не нужно.'
+  )) return;
+
   apiCall(
     'updateRequest',
     data,
     async function(result) {
       const beforePhotos = getSelectedFiles('editBeforePhotos');
       const afterPhotos = getSelectedFiles('editAfterPhotos');
+
+      endActionFeedback(btn, '✓ Сохранено');
+      closeEditModal();
+
+      if (!beforePhotos.length && !afterPhotos.length) {
+        showStatus(result.message || 'Изменения сохранены');
+        loadData({ silent: true });
+        return;
+      }
+
+      showStatus('Изменения сохранены. Загружаю фотографии…');
       try {
         if (beforePhotos.length) {
-          showStatus('Заявка обновлена, загружаю фото «до»...');
           await uploadRequestPhotos(beforePhotos, rowNumber, '', 'before');
         }
         if (afterPhotos.length) {
-          showStatus('Загружаю фото «после»...');
           await uploadRequestPhotos(afterPhotos, rowNumber, '', 'after');
         }
-        closeEditModal();
-        showStatus((beforePhotos.length || afterPhotos.length) ? 'Заявка и фотографии обновлены' : (result.message || 'Заявка обновлена'));
-        loadData();
+        showStatus('Заявка и фотографии обновлены');
+        loadData({ silent: true });
       } catch (error) {
-        alert('Заявка обновлена, но не удалось загрузить фото: ' + error.message);
-        closeEditModal();
-        loadData();
+        showStatus('Изменения сохранены, но фото не загрузились: ' + error.message, true);
+        loadData({ silent: true });
       }
     },
     function(error) {
+      endActionFeedback(btn);
       showStatus('Ошибка: ' + error, true);
     }
   );

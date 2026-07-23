@@ -1109,3 +1109,24 @@ body.photo-lightbox-open { overflow: hidden; }
 .manage-btn.share-report-btn {
   font-weight: 700;
 }
+
+
+/* v1.2.2 — мгновенная реакция сохранения */
+button.is-saving {
+  position: relative;
+  opacity: .82;
+  cursor: wait;
+}
+button.is-saving::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: nashdom-spin .7s linear infinite;
+}
+@keyframes nashdom-spin { to { transform: rotate(360deg); } }

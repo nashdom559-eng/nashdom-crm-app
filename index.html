@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.2.1<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.2.2<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -297,7 +297,7 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="modal-cancel" onclick="closeEditModal()">Отмена</button>
-          <button type="button" class="modal-ok" onclick="confirmEditRequest()">Сохранить</button>
+          <button id="editSaveBtn" type="button" class="modal-ok" onclick="confirmEditRequest()">Сохранить</button>
         </div>
       </div>
     </div>
