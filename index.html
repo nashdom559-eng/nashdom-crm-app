@@ -10,8 +10,8 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>НашДом CRM</title>
 
-  <link rel="manifest" href="./manifest.json?v=1.1.0">
-  <link rel="stylesheet" href="./style.css?v=1.1.1">
+  <link rel="manifest" href="./manifest.json?v=1.2.0">
+  <link rel="stylesheet" href="./style.css?v=1.2.0">
 </head>
 
 <body>
@@ -23,7 +23,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.1.4<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.2.0<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -77,6 +77,7 @@
         <div id="voiceStatus" class="voice-status"></div>
         <label>Фотографии «до» (до 3)</label>
         <input id="beforePhotos" class="photo-input" type="file" accept="image/*" multiple>
+        <div id="beforePhotosPreview" class="selected-photo-preview"></div>
         <label id="emergencyBlock" class="emergency-toggle"><input id="isEmergency" type="checkbox"><span>🚨 Аварийная заявка</span></label>
         <div id="residentContactFields">
           <label id="contactNameLabel">4. ФИО / как обращаться</label>
@@ -277,6 +278,19 @@
         <label>Плановая дата</label>
         <input id="editPlanDate" type="datetime-local">
 
+        <div class="edit-photo-section">
+          <label>Уже прикреплённые фотографии</label>
+          <div id="editExistingPhotos" class="edit-existing-photos"></div>
+
+          <label>Добавить фотографии «до» (до 3)</label>
+          <input id="editBeforePhotos" class="photo-input" type="file" accept="image/*" multiple>
+          <div id="editBeforePhotosPreview" class="selected-photo-preview"></div>
+
+          <label>Добавить фотографии «после» (до 3)</label>
+          <input id="editAfterPhotos" class="photo-input" type="file" accept="image/*" multiple>
+          <div id="editAfterPhotosPreview" class="selected-photo-preview"></div>
+        </div>
+
         <div class="request-admin-actions">
           <button type="button" class="archive-btn" onclick="archiveCurrentRequest()">📦 В архив</button>
           <button type="button" class="delete-btn" onclick="trashCurrentRequest()">🗑 В корзину</button>
@@ -436,7 +450,12 @@
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzVrcm54k04A7vSHsUedjAQJ5yVynVeLpXXs4DFNW4d0mT7OpQdwNbUnvGoeI6L3bSrvA/exec';
   </script>
-  <script src="./app.js?v=1.1.1"></script>
+  <div id="photoLightbox" class="photo-lightbox" onclick="closePhotoLightbox(event)">
+    <button type="button" class="photo-lightbox-close" onclick="closePhotoLightbox(event)">×</button>
+    <img id="photoLightboxImage" src="" alt="Фото заявки">
+  </div>
+
+  <script src="./app.js?v=1.2.0"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>

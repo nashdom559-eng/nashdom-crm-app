@@ -43,6 +43,7 @@ const CRM = {
 
 document.addEventListener('DOMContentLoaded', function() {
   attachFormEvents();
+  setupPhotoInputs();
 
   if (getAccessKey()) {
     loadData();
@@ -676,8 +677,77 @@ function renderPhotoGallery(items, title) {
     items.map(function(photo) {
       const src = photo.thumb || photo.url || '';
       const href = photo.url || src;
-      return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener"><img src="' + escapeHtml(src) + '" alt="Фото заявки"></a>';
+      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightbox(\'' + escapeJs(href) + '\')"><img src="' + escapeHtml(src) + '" alt="Фото заявки"></button>';
     }).join('') + '</div></div>';
+}
+
+function openPhotoLightbox(url) {
+  if (!url) return;
+  const box = document.getElementById('photoLightbox');
+  const image = document.getElementById('photoLightboxImage');
+  if (!box || !image) return;
+  image.src = url;
+  box.classList.add('active');
+  document.body.classList.add('photo-lightbox-open');
+}
+
+function closePhotoLightbox(event) {
+  if (event) event.stopPropagation();
+  const box = document.getElementById('photoLightbox');
+  const image = document.getElementById('photoLightboxImage');
+  if (box) box.classList.remove('active');
+  if (image) image.src = '';
+  document.body.classList.remove('photo-lightbox-open');
+}
+
+function setupPhotoInputs() {
+  ['beforePhotos', 'editBeforePhotos', 'editAfterPhotos'].forEach(function(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input || input.dataset.previewReady === '1') return;
+    input.dataset.previewReady = '1';
+    input.addEventListener('change', function() {
+      limitPhotoSelection(input, 3);
+      renderSelectedPhotoPreview(inputId);
+    });
+  });
+}
+
+function limitPhotoSelection(input, maxCount) {
+  const files = Array.from(input.files || []);
+  if (files.length <= maxCount) return;
+  const transfer = new DataTransfer();
+  files.slice(0, maxCount).forEach(function(file) { transfer.items.add(file); });
+  input.files = transfer.files;
+  alert('Можно выбрать не больше ' + maxCount + ' фотографий за один раз.');
+}
+
+function renderSelectedPhotoPreview(inputId) {
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(inputId + 'Preview');
+  if (!input || !preview) return;
+  const files = Array.from(input.files || []);
+  preview.innerHTML = files.map(function(file, index) {
+    const url = URL.createObjectURL(file);
+    return '<div class="selected-photo-item"><img src="' + url + '" alt="Выбранное фото"><button type="button" onclick="removeSelectedPhoto(\'' + inputId + '\',' + index + ')">×</button></div>';
+  }).join('');
+}
+
+function removeSelectedPhoto(inputId, removeIndex) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const transfer = new DataTransfer();
+  Array.from(input.files || []).forEach(function(file, index) {
+    if (index !== removeIndex) transfer.items.add(file);
+  });
+  input.files = transfer.files;
+  renderSelectedPhotoPreview(inputId);
+}
+
+function clearPhotoInput(inputId) {
+  const input = document.getElementById(inputId);
+  const preview = document.getElementById(inputId + 'Preview');
+  if (input) input.value = '';
+  if (preview) preview.innerHTML = '';
 }
 
 function saveRequest() {
@@ -1297,6 +1367,15 @@ function openEditModal(rowNumber) {
   setValue('editPhone', req.phone || '');
   setValue('editPlanDate', req.rawPlanDate || '');
   setChecked('editIsEmergency', Boolean(req.isEmergency));
+  clearPhotoInput('editBeforePhotos');
+  clearPhotoInput('editAfterPhotos');
+  const existingPhotos = document.getElementById('editExistingPhotos');
+  if (existingPhotos) {
+    existingPhotos.innerHTML =
+      renderPhotoGallery(req.photosBefore, '📷 До') +
+      renderPhotoGallery(req.photosAfter, '📷 После') ||
+      '<div class="empty-note">Фотографий пока нет</div>';
+  }
 
   const modal = document.getElementById('editModal');
   if (modal) modal.classList.add('active');
@@ -1304,6 +1383,8 @@ function openEditModal(rowNumber) {
 
 function closeEditModal() {
   CRM.state.currentEditRowNumber = null;
+  clearPhotoInput('editBeforePhotos');
+  clearPhotoInput('editAfterPhotos');
 
   const modal = document.getElementById('editModal');
   if (modal) modal.classList.remove('active');
@@ -1332,10 +1413,26 @@ function confirmEditRequest() {
   apiCall(
     'updateRequest',
     data,
-    function(result) {
-      closeEditModal();
-      showStatus(result.message || 'Заявка обновлена');
-      loadData();
+    async function(result) {
+      const beforePhotos = getSelectedFiles('editBeforePhotos');
+      const afterPhotos = getSelectedFiles('editAfterPhotos');
+      try {
+        if (beforePhotos.length) {
+          showStatus('Заявка обновлена, загружаю фото «до»...');
+          await uploadRequestPhotos(beforePhotos, rowNumber, '', 'before');
+        }
+        if (afterPhotos.length) {
+          showStatus('Загружаю фото «после»...');
+          await uploadRequestPhotos(afterPhotos, rowNumber, '', 'after');
+        }
+        closeEditModal();
+        showStatus((beforePhotos.length || afterPhotos.length) ? 'Заявка и фотографии обновлены' : (result.message || 'Заявка обновлена'));
+        loadData();
+      } catch (error) {
+        alert('Заявка обновлена, но не удалось загрузить фото: ' + error.message);
+        closeEditModal();
+        loadData();
+      }
     },
     function(error) {
       showStatus('Ошибка: ' + error, true);
@@ -1782,8 +1879,7 @@ function clearNewRequestForm() {
   setValue('commonLocationDetails', '');
   setValue('customLocation', '');
   setValue('recordSource', 'Обнаружено при обходе');
-  const beforePhotos = document.getElementById('beforePhotos');
-  if (beforePhotos) beforePhotos.value = '';
+  clearPhotoInput('beforePhotos');
   setValue('otherAddress', '');
 
   const otherAddress = document.getElementById('otherAddress');
