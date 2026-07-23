@@ -10,11 +10,12 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>НашДом CRM</title>
 
-  <link rel="manifest" href="./manifest.json?v=1.2.0">
-  <link rel="stylesheet" href="./style.css?v=1.2.0">
+  <link rel="manifest" href="./manifest.json?v=1.2.3">
+  <link rel="stylesheet" href="./style.css?v=1.2.3">
 </head>
 
 <body>
+  <div id="offlineIndicator" class="offline-indicator" hidden></div>
   <div id="updateBanner" class="update-banner">
     <span>🔄 Доступна новая версия</span>
     <button type="button" onclick="applyAppUpdate()">Обновить</button>
@@ -23,7 +24,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.2.2<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.2.3<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -455,7 +456,7 @@
     <img id="photoLightboxImage" src="" alt="Фото заявки">
   </div>
 
-  <script src="./app.js?v=1.2.0"></script>
+  <script src="./app.js?v=1.2.3"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>

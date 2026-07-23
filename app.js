@@ -1,4 +1,9 @@
 const ACCESS_KEY_STORAGE = 'nashdom_api_access_key';
+const DRAFT_STORAGE_KEY = 'nashdom_new_request_draft_v1';
+const DATA_CACHE_KEY = 'nashdom_app_data_cache_v1';
+const OFFLINE_DB_NAME = 'nashdom_crm_offline';
+const OFFLINE_DB_VERSION = 1;
+const OFFLINE_QUEUE_STORE = 'requestQueue';
 
 function getAccessKey() {
   let key = localStorage.getItem(ACCESS_KEY_STORAGE) || '';
@@ -44,6 +49,8 @@ const CRM = {
 document.addEventListener('DOMContentLoaded', function() {
   attachFormEvents();
   setupPhotoInputs();
+  setupDraftAutosave();
+  setupOfflineMode();
 
   if (getAccessKey()) {
     loadData();
@@ -160,29 +167,25 @@ function endActionFeedback(button, finalText, resetDelay) {
 
 function loadData(options) {
   const silent = Boolean(options && options.silent);
+  if (!navigator.onLine) {
+    const cached = loadCachedAppData();
+    if (cached) {
+      applyAppData(cached);
+      if (!silent) showStatus('📴 Нет интернета. Показаны последние сохранённые данные.');
+    } else if (!silent) {
+      showStatus('📴 Нет интернета. Новую заявку можно сохранить — она отправится позже.', true);
+    }
+    return;
+  }
   if (!silent) showStatus('Загружаю данные...');
 
   apiCall(
     'getAppData',
     null,
     function(data) {
-      CRM.data = data || {
-        houses: [],
-        contacts: [],
-        acceptedRequests: [],
-        allRequests: []
-      };
-
-      fillHouseSelect();
-      fillEditHouseSelect();
-      setupHousesView();
-      setupOtherAddressesView();
-      setupWalkthroughView();
-      renderDashboard();
-      renderResidentInbox();
-      renderAcceptedRequests();
-      runSearch();
-
+      applyAppData(data);
+      saveCachedAppData(CRM.data);
+      restoreNewRequestDraft();
       if (!silent) showStatus('');
     },
     function(error) {
@@ -859,6 +862,22 @@ function saveRequest() {
     'Google Таблицы отвечают медленнее обычного. Заявка сохраняется — повторно нажимать не нужно.'
   )) return;
 
+  const pendingPhotos = getSelectedFiles('beforePhotos');
+  if (!navigator.onLine) {
+    queueRequestOffline(data, pendingPhotos).then(function() {
+      clearNewRequestDraft();
+      clearNewRequestForm();
+      setRecordType('resident');
+      endActionFeedback(btn, '✓ Сохранено на телефоне');
+      showStatus('📴 Нет интернета. Заявка сохранена на телефоне и отправится автоматически при появлении связи.');
+      updateOfflineIndicator();
+    }).catch(function(error) {
+      endActionFeedback(btn);
+      showStatus('Не удалось сохранить заявку на телефоне: ' + error.message, true);
+    });
+    return;
+  }
+
   apiCall(
     'addRequest',
     data,
@@ -879,6 +898,7 @@ function saveRequest() {
         }
       }
       showStatus(result.message || 'Запись сохранена');
+      clearNewRequestDraft();
       clearNewRequestForm();
       setRecordType('resident');
 
@@ -886,6 +906,20 @@ function saveRequest() {
       loadData({ silent: true });
     },
     function(error) {
+      if (String(error || '').includes('подключиться')) {
+        queueRequestOffline(data, pendingPhotos).then(function() {
+          clearNewRequestDraft();
+          clearNewRequestForm();
+          setRecordType('resident');
+          endActionFeedback(btn, '✓ Сохранено на телефоне');
+          showStatus('📴 Связь пропала. Заявка сохранена на телефоне и отправится автоматически.');
+          updateOfflineIndicator();
+        }).catch(function(queueError) {
+          showStatus('Ошибка сохранения: ' + queueError.message, true);
+          endActionFeedback(btn);
+        });
+        return;
+      }
       showStatus('Ошибка сохранения: ' + error, true);
       endActionFeedback(btn);
     }
@@ -3449,4 +3483,154 @@ function trashCurrentRequest() {
   if(!row)return;
   closeEditModal();
   trashRequestUi(row);
+}
+
+
+/* ===== v1.2.3: автосохранение черновика и очередь без интернета ===== */
+function applyAppData(data) {
+  CRM.data = data || { houses: [], houseProfiles: {}, contacts: [], acceptedRequests: [], allRequests: [] };
+  fillHouseSelect();
+  fillEditHouseSelect();
+  setupHousesView();
+  setupOtherAddressesView();
+  setupWalkthroughView();
+  renderDashboard();
+  renderResidentInbox();
+  renderAcceptedRequests();
+  runSearch();
+}
+
+function saveCachedAppData(data) {
+  try { localStorage.setItem(DATA_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: data })); } catch (e) {}
+}
+function loadCachedAppData() {
+  try { const item = JSON.parse(localStorage.getItem(DATA_CACHE_KEY) || 'null'); return item && item.data ? item.data : null; } catch (e) { return null; }
+}
+
+function collectNewRequestDraft() {
+  return {
+    recordType: getValue('recordType') || 'resident', house: getValue('house'), otherAddress: getValue('otherAddress'),
+    flat: getValue('flat'), commonLocation: getValue('commonLocation'), commonLocationDetails: getValue('commonLocationDetails'),
+    customLocation: getValue('customLocation'), recordSource: getValue('recordSource'), description: getValue('description'),
+    isEmergency: getChecked('isEmergency'), name: getValue('name'), phone: getValue('phone'), planDate: getValue('planDate'),
+    savedAt: Date.now()
+  };
+}
+function hasMeaningfulDraft(d) {
+  return Boolean(d && (d.flat || d.otherAddress || d.description || d.name || d.phone || d.planDate || d.commonLocationDetails || d.customLocation));
+}
+let draftSaveTimer = 0;
+function saveNewRequestDraftSoon() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(function() {
+    const draft = collectNewRequestDraft();
+    try {
+      if (hasMeaningfulDraft(draft)) localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      else localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {}
+  }, 250);
+}
+function clearNewRequestDraft() { try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch (e) {} }
+function setupDraftAutosave() {
+  const ids = ['recordType','house','otherAddress','flat','commonLocation','commonLocationDetails','customLocation','recordSource','description','isEmergency','name','phone','planDate'];
+  ids.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.draftReady === '1') return;
+    el.dataset.draftReady = '1';
+    el.addEventListener('input', saveNewRequestDraftSoon);
+    el.addEventListener('change', saveNewRequestDraftSoon);
+  });
+  window.addEventListener('pagehide', function() {
+    const d = collectNewRequestDraft();
+    try { if (hasMeaningfulDraft(d)) localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(d)); } catch (e) {}
+  });
+  setTimeout(restoreNewRequestDraft, 500);
+}
+function restoreNewRequestDraft() {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || 'null'); } catch (e) { return; }
+  if (!hasMeaningfulDraft(d)) return;
+  setValue('recordType', d.recordType || 'resident');
+  setRecordType(d.recordType || 'resident');
+  if (d.house) { setValue('house', d.house); handleHouseChange(); }
+  setValue('otherAddress', d.otherAddress || ''); setValue('flat', d.flat || '');
+  setValue('commonLocation', d.commonLocation || ''); toggleCustomLocation();
+  setValue('commonLocationDetails', d.commonLocationDetails || ''); setValue('customLocation', d.customLocation || '');
+  setValue('recordSource', d.recordSource || 'Обнаружено при обходе'); setValue('description', d.description || '');
+  setChecked('isEmergency', Boolean(d.isEmergency)); setValue('name', d.name || ''); setValue('phone', d.phone || ''); setValue('planDate', d.planDate || '');
+  const other = document.getElementById('otherAddress'); if (other && d.house === '__OTHER__') other.hidden = false;
+  showStatus('Черновик новой заявки восстановлен');
+}
+
+function openOfflineDb() {
+  return new Promise(function(resolve, reject) {
+    const request = indexedDB.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION);
+    request.onupgradeneeded = function() {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(OFFLINE_QUEUE_STORE)) db.createObjectStore(OFFLINE_QUEUE_STORE, { keyPath: 'localId' });
+    };
+    request.onsuccess = function() { resolve(request.result); };
+    request.onerror = function() { reject(request.error || new Error('Ошибка локальной базы')); };
+  });
+}
+async function queueRequestOffline(data, photos) {
+  const db = await openOfflineDb();
+  const item = { localId: 'offline-' + Date.now() + '-' + Math.random().toString(36).slice(2), createdAt: Date.now(), data: data, photos: Array.from(photos || []) };
+  return new Promise(function(resolve, reject) {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readwrite');
+    tx.objectStore(OFFLINE_QUEUE_STORE).put(item);
+    tx.oncomplete = function() { db.close(); resolve(item); };
+    tx.onerror = function() { db.close(); reject(tx.error || new Error('Не удалось записать очередь')); };
+  });
+}
+async function getOfflineQueue() {
+  const db = await openOfflineDb();
+  return new Promise(function(resolve, reject) {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readonly');
+    const req = tx.objectStore(OFFLINE_QUEUE_STORE).getAll();
+    req.onsuccess = function() { const rows = req.result || []; db.close(); resolve(rows.sort(function(a,b){return a.createdAt-b.createdAt;})); };
+    req.onerror = function() { db.close(); reject(req.error); };
+  });
+}
+async function removeOfflineQueueItem(localId) {
+  const db = await openOfflineDb();
+  return new Promise(function(resolve, reject) {
+    const tx = db.transaction(OFFLINE_QUEUE_STORE, 'readwrite'); tx.objectStore(OFFLINE_QUEUE_STORE).delete(localId);
+    tx.oncomplete = function(){ db.close(); resolve(); }; tx.onerror = function(){ db.close(); reject(tx.error); };
+  });
+}
+let offlineSyncRunning = false;
+async function processOfflineQueue() {
+  if (!navigator.onLine || offlineSyncRunning) return;
+  offlineSyncRunning = true;
+  try {
+    const items = await getOfflineQueue();
+    if (!items.length) { updateOfflineIndicator(); return; }
+    showStatus('🔄 Отправляю сохранённые без интернета заявки: ' + items.length);
+    for (const item of items) {
+      try {
+        const result = await apiCallPromise('addRequest', item.data);
+        if (item.photos && item.photos.length) await uploadRequestPhotos(item.photos, result.rowNumber, result.id, 'before');
+        await removeOfflineQueueItem(item.localId);
+      } catch (error) {
+        break;
+      }
+    }
+    const left = await getOfflineQueue();
+    if (!left.length) { showStatus('✓ Все отложенные заявки отправлены'); loadData({silent:true}); }
+    else showStatus('Не удалось отправить ' + left.length + ' отложенных заявок. Повторю при следующем подключении.', true);
+  } finally { offlineSyncRunning = false; updateOfflineIndicator(); }
+}
+async function updateOfflineIndicator() {
+  const box = document.getElementById('offlineIndicator'); if (!box) return;
+  let count = 0; try { count = (await getOfflineQueue()).length; } catch (e) {}
+  if (!navigator.onLine) { box.hidden = false; box.textContent = '📴 Нет интернета' + (count ? ' · в очереди: ' + count : ''); box.className = 'offline-indicator offline'; }
+  else if (count) { box.hidden = false; box.textContent = '🔄 Ожидают отправки: ' + count; box.className = 'offline-indicator pending'; }
+  else { box.hidden = true; }
+}
+function setupOfflineMode() {
+  window.addEventListener('online', function(){ updateOfflineIndicator(); processOfflineQueue(); loadData({silent:true}); });
+  window.addEventListener('offline', function(){ updateOfflineIndicator(); showStatus('📴 Связь пропала. Черновик и новые заявки сохраняются на телефоне.'); });
+  updateOfflineIndicator();
+  if (navigator.onLine) setTimeout(processOfflineQueue, 1200);
 }

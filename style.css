@@ -1130,3 +1130,8 @@ button.is-saving::before {
   animation: nashdom-spin .7s linear infinite;
 }
 @keyframes nashdom-spin { to { transform: rotate(360deg); } }
+
+/* v1.2.3 — офлайн-режим */
+.offline-indicator{position:fixed;z-index:10000;top:0;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:0 0 12px 12px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.18);max-width:92vw;text-align:center}
+.offline-indicator.offline{background:#7c2d12;color:#fff}
+.offline-indicator.pending{background:#f59e0b;color:#111827}
