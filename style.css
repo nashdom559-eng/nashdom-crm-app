@@ -1104,3 +1104,8 @@ body.photo-lightbox-open { overflow: hidden; }
 @media (min-width: 900px) {
   .selected-photo-preview { grid-template-columns: repeat(3, 120px); }
 }
+
+/* v1.2.1: отдельная отправка отчёта о выполнении */
+.manage-btn.share-report-btn {
+  font-weight: 700;
+}

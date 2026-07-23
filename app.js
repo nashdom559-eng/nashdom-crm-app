@@ -1195,21 +1195,23 @@ function renderManagementActions(req) {
   if (req.status === 'Архив') {
     return `<div class="management-actions">
       <button class="manage-btn reopen-btn" onclick="restoreRequestUi(${Number(req.rowNumber)})">↩ Вернуть в работу</button>
-      <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Поделиться</button>
+      <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Отправить заявку</button>
       <button class="manage-btn delete-btn" onclick="trashRequestUi(${Number(req.rowNumber)})">🗑 В корзину</button>
     </div>`;
   }
 
-  const extra = req.status === 'Выполнено'
-    ? `<button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">↩ Возобновить</button>`
+  const isDone = req.status === 'Выполнено';
+  const extra = isDone
+    ? `<button class="manage-btn share-report-btn" onclick="shareCompletionReport(${Number(req.rowNumber)})">✅ Отправить отчёт</button>
+       <button class="manage-btn reopen-btn" onclick="openReopenModal(${Number(req.rowNumber)})">↩ Возобновить</button>`
     : '';
 
   return `<div class="management-actions">
     <button class="manage-btn edit-btn" onclick="openEditModal(${Number(req.rowNumber)})">✏️ Редактировать</button>
     <button class="manage-btn dispatch-btn" onclick="openDispatchModal(${Number(req.rowNumber)})">👷 Исполнитель</button>
-    <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Поделиться</button>
-    ${req.phone ? `<button class="manage-btn contact-save-btn" onclick="saveRequestContact(${Number(req.rowNumber)})">👤 В контакты</button>` : ''}
+    <button class="manage-btn share-request-btn" onclick="shareRequest(${Number(req.rowNumber)})">📤 Отправить заявку</button>
     ${extra}
+    ${req.phone ? `<button class="manage-btn contact-save-btn" onclick="saveRequestContact(${Number(req.rowNumber)})">👤 В контакты</button>` : ''}
     <button class="manage-btn archive-btn" onclick="archiveRequestUi(${Number(req.rowNumber)})">📦 Архив</button>
     <button class="manage-btn delete-btn" onclick="trashRequestUi(${Number(req.rowNumber)})">🗑 Корзина</button>
   </div>`;
@@ -2907,26 +2909,71 @@ function getRequestPhotoUrls(req) {
     .filter(Boolean);
 }
 
+function getStatusShareLabel(req) {
+  if (req.isEmergency) return '🔴 АВАРИЙНАЯ ЗАЯВКА';
+  if (req.status === 'Выполнено') return '🟢 ЗАЯВКА ВЫПОЛНЕНА';
+  if (req.status === 'Ожидает') return '🟠 ЗАЯВКА ОЖИДАЕТ';
+  if (req.planDate) return '🔵 ЗАЯВКА ЗАПЛАНИРОВАНА';
+  return '🟡 НОВАЯ ЗАЯВКА';
+}
+
+function getPhotoUrlsByStage(req, stage) {
+  const photos = stage === 'after' ? (req.photosAfter || []) : (req.photosBefore || []);
+  return photos
+    .map(function(photo) { return photo && (photo.url || photo.thumb); })
+    .filter(Boolean);
+}
+
 function buildRequestShareText(req) {
-  const photoUrls = getRequestPhotoUrls(req);
+  const photoBefore = getPhotoUrlsByStage(req, 'before');
+  const photoAfter = getPhotoUrlsByStage(req, 'after');
   const lines = [
-    'ЗАЯВКА ' + (req.id || ''),
-    'Дом: ' + (req.house || ''),
-    req.flat ? (isCommonPropertyRequest(req) ? 'Место: ' : 'Квартира: ') + req.flat : '',
-    getRecordTypeLabel(req) ? 'Тип: ' + getRecordTypeLabel(req).replace(/^[^ ]+ /, '') : '',
-    req.name ? (isCommonPropertyRequest(req) ? 'Сообщил: ' : 'Контакт: ') + req.name : '',
-    req.phone ? 'Телефон: ' + req.phone : '',
-    req.priority ? 'Категория: ' + req.priority : '',
-    req.executor ? 'Исполнитель: ' + req.executor : '',
-    req.planDate ? 'Плановый визит: ' + formatPlanForShare(req.planDate) : '',
+    getStatusShareLabel(req),
+    req.id ? '№ ' + req.id : '',
     '',
-    req.description || '',
-    photoUrls.length ? '\nФотографии:\n' + photoUrls.join('\n') : ''
+    '🏠 Дом: ' + (req.house || ''),
+    req.flat ? (isCommonPropertyRequest(req) ? '📍 Место: ' : '🏢 Квартира: ') + req.flat : '',
+    getRecordTypeLabel(req) ? '📋 Тип: ' + getRecordTypeLabel(req).replace(/^[^ ]+ /, '') : '',
+    req.name ? (isCommonPropertyRequest(req) ? '👤 Сообщил: ' : '👤 Контакт: ') + req.name : '',
+    req.phone ? '☎ Телефон: ' + req.phone : '',
+    req.priority ? '🔧 Категория: ' + req.priority : '',
+    req.executor ? '👷 Исполнитель: ' + req.executor : '',
+    req.planDate ? '📅 Плановый визит: ' + formatPlanForShare(req.planDate) : '',
+    '',
+    '📝 Заявка:',
+    req.description || '—',
+    photoBefore.length ? '\n📷 Фото к заявке:\n' + photoBefore.join('\n') : '',
+    photoAfter.length ? '\n📷 Фото после выполнения:\n' + photoAfter.join('\n') : ''
   ];
 
-  return lines.filter(function(line, index) {
-    return line !== '' || index === lines.length - 3;
-  }).join('\n').trim();
+  return lines.filter(Boolean).join('\n').trim();
+}
+
+function buildCompletionReportText(req) {
+  const photoBefore = getPhotoUrlsByStage(req, 'before');
+  const photoAfter = getPhotoUrlsByStage(req, 'after');
+  const lines = [
+    '✅ ЗАЯВКА ВЫПОЛНЕНА',
+    req.id ? '№ ' + req.id : '',
+    '',
+    '🏠 Дом: ' + (req.house || ''),
+    req.flat ? (isCommonPropertyRequest(req) ? '📍 Место: ' : '🏢 Квартира: ') + req.flat : '',
+    req.name ? (isCommonPropertyRequest(req) ? '👤 Сообщил: ' : '👤 Контакт: ') + req.name : '',
+    req.phone ? '☎ Телефон: ' + req.phone : '',
+    req.executor ? '👷 Исполнитель: ' + req.executor : '',
+    req.planDate ? '📅 Плановый визит: ' + formatPlanForShare(req.planDate) : '',
+    req.doneDate ? '✅ Выполнено: ' + formatPlanForShare(req.doneDate) : '✅ Статус: Выполнено',
+    '',
+    '📝 Заявка:',
+    req.description || '—',
+    '',
+    '💬 Результат:',
+    req.comment || req.doneComment || req.executionComment || 'Работа выполнена.',
+    photoBefore.length ? '\n📷 Фото до:\n' + photoBefore.join('\n') : '',
+    photoAfter.length ? '\n📷 Фото после:\n' + photoAfter.join('\n') : ''
+  ];
+
+  return lines.filter(Boolean).join('\n').trim();
 }
 
 async function loadShareFiles(req) {
@@ -2972,10 +3019,41 @@ async function shareRequest(rowNumber) {
   fallbackCopyRequest(text);
 }
 
-function fallbackCopyRequest(text) {
+
+async function shareCompletionReport(rowNumber) {
+  const req = findRequestByRow(rowNumber);
+  if (!req) {
+    alert('Заявка не найдена');
+    return;
+  }
+
+  if (req.status !== 'Выполнено') {
+    alert('Отчёт можно отправить после выполнения заявки');
+    return;
+  }
+
+  const text = buildCompletionReportText(req);
+  if (navigator.share) {
+    try {
+      const files = await loadShareFiles(req);
+      const shareData = { title: 'Отчёт по заявке ' + (req.id || ''), text: text };
+      if (files.length && navigator.canShare && navigator.canShare({ files: files })) {
+        shareData.files = files;
+      }
+      await navigator.share(shareData);
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+
+  fallbackCopyRequest(text, 'Отчёт и ссылки на фото скопированы');
+}
+
+function fallbackCopyRequest(text, successMessage) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text)
-      .then(function() { alert('Текст заявки и ссылки на фото скопированы'); })
+      .then(function() { alert(successMessage || 'Текст заявки и ссылки на фото скопированы'); })
       .catch(function() { prompt('Скопируй заявку:', text); });
   } else {
     prompt('Скопируй заявку:', text);
