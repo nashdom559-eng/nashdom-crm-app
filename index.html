@@ -451,12 +451,19 @@
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbzVrcm54k04A7vSHsUedjAQJ5yVynVeLpXXs4DFNW4d0mT7OpQdwNbUnvGoeI6L3bSrvA/exec';
   </script>
-  <div id="photoLightbox" class="photo-lightbox" onclick="closePhotoLightbox(event)">
-    <button type="button" class="photo-lightbox-close" onclick="closePhotoLightbox(event)">×</button>
-    <img id="photoLightboxImage" src="" alt="Фото заявки">
+  <div id="photoLightbox" class="photo-lightbox" onclick="closePhotoLightbox(event)" aria-hidden="true">
+    <button type="button" class="photo-lightbox-close" onclick="closePhotoLightbox(event)" aria-label="Закрыть">×</button>
+    <button id="photoLightboxPrev" type="button" class="photo-lightbox-nav photo-lightbox-prev" onclick="changePhotoLightbox(-1,event)" aria-label="Предыдущее фото">‹</button>
+    <div class="photo-lightbox-stage" onclick="event.stopPropagation()">
+      <div id="photoLightboxLoader" class="photo-lightbox-loader">Загрузка…</div>
+      <div id="photoLightboxError" class="photo-lightbox-error" hidden>Не удалось открыть фото</div>
+      <img id="photoLightboxImage" alt="Фото заявки">
+      <div id="photoLightboxCounter" class="photo-lightbox-counter"></div>
+    </div>
+    <button id="photoLightboxNext" type="button" class="photo-lightbox-nav photo-lightbox-next" onclick="changePhotoLightbox(1,event)" aria-label="Следующее фото">›</button>
   </div>
 
-  <script src="./app.js?v=1.2.3"></script>
+  <script src="./app.js?v=1.3.2"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>
