@@ -24,7 +24,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.3.2<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.3.4<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -456,14 +456,15 @@
     <button type="button" id="photoLightboxPrev" class="photo-lightbox-nav photo-lightbox-prev" onclick="showPreviousPhoto(event)" aria-label="Предыдущее фото">‹</button>
     <div class="photo-lightbox-content" onclick="event.stopPropagation()">
       <div id="photoLightboxLoader" class="photo-lightbox-loader">Загрузка…</div>
-      <img id="photoLightboxImage" src="" alt="Фото заявки">
+      <img id="photoLightboxImage" src="" alt="Фото заявки" ondblclick="togglePhotoZoom(event)">
       <div id="photoLightboxError" class="photo-lightbox-error" hidden>Не удалось открыть фотографию</div>
+      <div class="photo-lightbox-tools"><button type="button" onclick="zoomPhotoOut(event)" aria-label="Уменьшить">−</button><span id="photoLightboxZoomLabel">100%</span><button type="button" onclick="zoomPhotoIn(event)" aria-label="Увеличить">+</button></div>
       <div id="photoLightboxCounter" class="photo-lightbox-counter"></div>
     </div>
     <button type="button" id="photoLightboxNext" class="photo-lightbox-nav photo-lightbox-next" onclick="showNextPhoto(event)" aria-label="Следующее фото">›</button>
   </div>
 
-  <script src="./app.js?v=1.3.2"></script>
+  <script src="./app.js?v=1.3.4"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>
