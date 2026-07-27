@@ -4,10 +4,6 @@ const DATA_CACHE_KEY = 'nashdom_app_data_cache_v1';
 const OFFLINE_DB_NAME = 'nashdom_crm_offline';
 const OFFLINE_DB_VERSION = 1;
 const OFFLINE_QUEUE_STORE = 'requestQueue';
-const PHOTO_GALLERIES = Object.create(null);
-let photoGallerySequence = 0;
-let activePhotoGalleryId = '';
-let activePhotoIndex = 0;
 
 function getAccessKey() {
   let key = localStorage.getItem(ACCESS_KEY_STORAGE) || '';
@@ -718,134 +714,130 @@ async function uploadRequestPhotos(
   }
 }
 
+let photoLightboxItems = [];
+let photoLightboxIndex = 0;
+let photoLightboxTouchStartX = 0;
+
 function getDriveFileId(photo) {
   if (!photo) return '';
   if (photo.id) return String(photo.id);
-  const source = String(photo.url || photo.thumb || '');
-  const match = source.match(/[?&]id=([^&]+)/) || source.match(/\/d\/([^/]+)/);
-  return match ? decodeURIComponent(match[1]) : '';
+  const value = String(photo.url || photo.thumb || '');
+  const patterns = [/[?&]id=([^&]+)/, /\/d\/([^/]+)/, /thumbnail\?id=([^&]+)/];
+  for (const pattern of patterns) {
+    const match = value.match(pattern);
+    if (match && match[1]) return decodeURIComponent(match[1]);
+  }
+  return '';
 }
 
-function getPhotoDisplayUrl(photo) {
+function getFullPhotoUrl(photo) {
   const id = getDriveFileId(photo);
   if (id) return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w2000';
-  return String((photo && (photo.url || photo.thumb)) || '');
-}
-
-function getPhotoThumbUrl(photo) {
-  const id = getDriveFileId(photo);
-  if (photo && photo.thumb) return String(photo.thumb);
-  if (id) return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w800';
-  return String((photo && photo.url) || '');
+  return String((photo && (photo.thumb || photo.url)) || '');
 }
 
 function renderPhotoGallery(items, title) {
   if (!Array.isArray(items) || !items.length) return '';
-  const galleryId = 'photo-gallery-' + (++photoGallerySequence);
-  PHOTO_GALLERIES[galleryId] = items.slice();
-
+  const encoded = encodeURIComponent(JSON.stringify(items));
   return '<div class="photo-gallery-block"><div class="photo-gallery-title">' + title + '</div><div class="photo-gallery">' +
     items.map(function(photo, index) {
-      const src = getPhotoThumbUrl(photo);
-      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightbox(\'' + galleryId + '\',' + index + ')">' +
-        '<img src="' + escapeHtml(src) + '" alt="Фото заявки" loading="lazy">' +
-      '</button>';
+      const src = photo.thumb || getFullPhotoUrl(photo) || photo.url || '';
+      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightboxGallery(\'' + encoded + '\',' + index + ')"><img src="' + escapeHtml(src) + '" alt="Фото заявки"></button>';
     }).join('') + '</div></div>';
 }
 
-function openPhotoLightbox(galleryId, index) {
-  const gallery = PHOTO_GALLERIES[galleryId];
-  if (!Array.isArray(gallery) || !gallery.length) return;
-  activePhotoGalleryId = galleryId;
-  activePhotoIndex = Math.max(0, Math.min(Number(index) || 0, gallery.length - 1));
-
+function openPhotoLightboxGallery(encodedItems, index) {
+  try {
+    photoLightboxItems = JSON.parse(decodeURIComponent(encodedItems)) || [];
+  } catch (error) {
+    photoLightboxItems = [];
+  }
+  photoLightboxIndex = Math.max(0, Math.min(Number(index) || 0, photoLightboxItems.length - 1));
   const box = document.getElementById('photoLightbox');
-  if (!box) return;
+  if (!box || !photoLightboxItems.length) return;
   box.classList.add('active');
-  box.setAttribute('aria-hidden', 'false');
   document.body.classList.add('photo-lightbox-open');
-  showActivePhoto();
+  renderPhotoLightbox();
 }
 
-function showActivePhoto() {
-  const gallery = PHOTO_GALLERIES[activePhotoGalleryId] || [];
-  const photo = gallery[activePhotoIndex];
+function openPhotoLightbox(url) {
+  openPhotoLightboxGallery(encodeURIComponent(JSON.stringify([{ url: url }])), 0);
+}
+
+function renderPhotoLightbox() {
   const image = document.getElementById('photoLightboxImage');
   const loader = document.getElementById('photoLightboxLoader');
   const error = document.getElementById('photoLightboxError');
   const counter = document.getElementById('photoLightboxCounter');
   const prev = document.getElementById('photoLightboxPrev');
   const next = document.getElementById('photoLightboxNext');
-  if (!image || !photo) return;
-
-  image.classList.remove('loaded');
-  image.removeAttribute('src');
+  if (!image) return;
+  const photo = photoLightboxItems[photoLightboxIndex];
+  const url = getFullPhotoUrl(photo);
+  image.style.display = 'none';
+  image.src = '';
   if (loader) loader.hidden = false;
   if (error) error.hidden = true;
-  if (counter) counter.textContent = (activePhotoIndex + 1) + ' / ' + gallery.length;
-  if (prev) prev.hidden = gallery.length < 2;
-  if (next) next.hidden = gallery.length < 2;
-
+  if (counter) counter.textContent = (photoLightboxIndex + 1) + ' / ' + photoLightboxItems.length;
+  if (prev) prev.hidden = photoLightboxItems.length < 2;
+  if (next) next.hidden = photoLightboxItems.length < 2;
   image.onload = function() {
-    image.classList.add('loaded');
     if (loader) loader.hidden = true;
+    if (error) error.hidden = true;
+    image.style.display = 'block';
   };
   image.onerror = function() {
     if (loader) loader.hidden = true;
+    image.style.display = 'none';
     if (error) error.hidden = false;
   };
-  image.src = getPhotoDisplayUrl(photo);
+  image.src = url;
 }
 
-function changePhotoLightbox(step, event) {
+function showPreviousPhoto(event) {
   if (event) event.stopPropagation();
-  const gallery = PHOTO_GALLERIES[activePhotoGalleryId] || [];
-  if (gallery.length < 2) return;
-  activePhotoIndex = (activePhotoIndex + step + gallery.length) % gallery.length;
-  showActivePhoto();
+  if (photoLightboxItems.length < 2) return;
+  photoLightboxIndex = (photoLightboxIndex - 1 + photoLightboxItems.length) % photoLightboxItems.length;
+  renderPhotoLightbox();
+}
+
+function showNextPhoto(event) {
+  if (event) event.stopPropagation();
+  if (photoLightboxItems.length < 2) return;
+  photoLightboxIndex = (photoLightboxIndex + 1) % photoLightboxItems.length;
+  renderPhotoLightbox();
 }
 
 function closePhotoLightbox(event) {
-  if (event) {
-    event.stopPropagation();
-    if (event.target && event.currentTarget && event.target !== event.currentTarget && !event.target.classList.contains('photo-lightbox-close')) return;
-  }
+  if (event) event.stopPropagation();
   const box = document.getElementById('photoLightbox');
   const image = document.getElementById('photoLightboxImage');
-  if (box) {
-    box.classList.remove('active');
-    box.setAttribute('aria-hidden', 'true');
-  }
-  if (image) image.removeAttribute('src');
-  activePhotoGalleryId = '';
-  activePhotoIndex = 0;
+  if (box) box.classList.remove('active');
+  if (image) image.src = '';
+  photoLightboxItems = [];
   document.body.classList.remove('photo-lightbox-open');
 }
 
 document.addEventListener('keydown', function(event) {
   const box = document.getElementById('photoLightbox');
   if (!box || !box.classList.contains('active')) return;
-  if (event.key === 'Escape') closePhotoLightbox();
-  if (event.key === 'ArrowLeft') changePhotoLightbox(-1);
-  if (event.key === 'ArrowRight') changePhotoLightbox(1);
+  if (event.key === 'Escape') closePhotoLightbox(event);
+  if (event.key === 'ArrowLeft') showPreviousPhoto(event);
+  if (event.key === 'ArrowRight') showNextPhoto(event);
 });
 
-let photoTouchStartX = 0;
-let photoTouchStartY = 0;
 document.addEventListener('touchstart', function(event) {
   const box = document.getElementById('photoLightbox');
-  if (!box || !box.classList.contains('active') || event.touches.length !== 1) return;
-  photoTouchStartX = event.touches[0].clientX;
-  photoTouchStartY = event.touches[0].clientY;
+  if (!box || !box.classList.contains('active')) return;
+  photoLightboxTouchStartX = event.changedTouches[0].clientX;
 }, { passive: true });
 
 document.addEventListener('touchend', function(event) {
   const box = document.getElementById('photoLightbox');
-  if (!box || !box.classList.contains('active') || !event.changedTouches.length) return;
-  const dx = event.changedTouches[0].clientX - photoTouchStartX;
-  const dy = event.changedTouches[0].clientY - photoTouchStartY;
-  if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-  changePhotoLightbox(dx < 0 ? 1 : -1);
+  if (!box || !box.classList.contains('active')) return;
+  const delta = event.changedTouches[0].clientX - photoLightboxTouchStartX;
+  if (Math.abs(delta) < 50) return;
+  if (delta > 0) showPreviousPhoto(); else showNextPhoto();
 }, { passive: true });
 
 function setupPhotoInputs() {
