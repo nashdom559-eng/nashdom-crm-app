@@ -1147,3 +1147,74 @@ button.is-saving::before {
 .house-request-actions button:last-child{background:#e8f7ee;color:#1b6a3b}
 .request-card-highlight{outline:3px solid rgba(46,125,246,.55);box-shadow:0 0 0 8px rgba(46,125,246,.12);transition:.25s}
 @media (max-width:520px){.flat-summary-grid{grid-template-columns:1fr 1fr}.flat-summary-grid strong{font-size:14px}}
+
+/* v1.3.2 — надёжный просмотр фотографий */
+.photo-lightbox-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(92vw, 1280px);
+  height: 92vh;
+  overflow: hidden;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.photo-lightbox-stage img {
+  opacity: 0;
+  transition: opacity .18s ease;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.photo-lightbox-stage img.loaded { opacity: 1; }
+.photo-lightbox-loader,
+.photo-lightbox-error {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(15,23,42,.82);
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+}
+.photo-lightbox-counter {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.58);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.photo-lightbox-nav {
+  position: fixed;
+  top: 50%;
+  z-index: 10000;
+  width: 48px;
+  height: 56px;
+  min-height: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255,255,255,.16);
+  color: #fff;
+  font-size: 44px;
+  line-height: 48px;
+}
+.photo-lightbox-prev { left: 10px; }
+.photo-lightbox-next { right: 10px; }
+@media (max-width: 640px) {
+  .photo-lightbox { padding: 8px; }
+  .photo-lightbox-stage { width: 100vw; height: 88vh; }
+  .photo-lightbox-nav { width: 42px; height: 52px; background: rgba(0,0,0,.45); }
+  .photo-lightbox-prev { left: 4px; }
+  .photo-lightbox-next { right: 4px; }
+}
