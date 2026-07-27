@@ -698,7 +698,19 @@ async function uploadRequestPhotos(
   const selected = files.slice(0, 3);
 
   for (let index = 0; index < selected.length; index++) {
-    const compressed = await compressPhoto(selected[index]);
+    const file = selected[index];
+    const number = index + 1;
+    showStatus('Сжимаю фото ' + number + ' из ' + selected.length + '…');
+
+    const compressed = await compressPhoto(file);
+    const originalKb = Math.max(1, Math.round((file.size || 0) / 1024));
+    const base64 = String(compressed.dataUrl || '').split(',')[1] || '';
+    const compressedKb = Math.max(1, Math.round(base64.length * 0.75 / 1024));
+
+    showStatus(
+      'Загружаю фото ' + number + ' из ' + selected.length +
+      ' (' + originalKb + ' → ' + compressedKb + ' КБ)…'
+    );
 
     await uploadPhotoPayload(
       {
@@ -717,6 +729,7 @@ async function uploadRequestPhotos(
 let photoLightboxItems = [];
 let photoLightboxIndex = 0;
 let photoLightboxTouchStartX = 0;
+let photoLightboxScale = 1;
 
 function getDriveFileId(photo) {
   if (!photo) return '';
@@ -739,10 +752,14 @@ function getFullPhotoUrl(photo) {
 function renderPhotoGallery(items, title) {
   if (!Array.isArray(items) || !items.length) return '';
   const encoded = encodeURIComponent(JSON.stringify(items));
+  const visible = items.slice(0, 4);
   return '<div class="photo-gallery-block"><div class="photo-gallery-title">' + title + '</div><div class="photo-gallery">' +
-    items.map(function(photo, index) {
+    visible.map(function(photo, index) {
       const src = photo.thumb || getFullPhotoUrl(photo) || photo.url || '';
-      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightboxGallery(\'' + encoded + '\',' + index + ')"><img src="' + escapeHtml(src) + '" alt="Фото заявки"></button>';
+      const more = index === 3 && items.length > 4
+        ? '<span class="photo-thumb-more">+' + (items.length - 4) + '</span>'
+        : '';
+      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightboxGallery(\'' + encoded + '\',' + index + ')"><img src="' + escapeHtml(src) + '" alt="Фото заявки">' + more + '</button>';
     }).join('') + '</div></div>';
 }
 
@@ -753,6 +770,7 @@ function openPhotoLightboxGallery(encodedItems, index) {
     photoLightboxItems = [];
   }
   photoLightboxIndex = Math.max(0, Math.min(Number(index) || 0, photoLightboxItems.length - 1));
+  photoLightboxScale = 1;
   const box = document.getElementById('photoLightbox');
   if (!box || !photoLightboxItems.length) return;
   box.classList.add('active');
@@ -774,6 +792,9 @@ function renderPhotoLightbox() {
   if (!image) return;
   const photo = photoLightboxItems[photoLightboxIndex];
   const url = getFullPhotoUrl(photo);
+  photoLightboxScale = 1;
+  image.style.transform = 'scale(1)';
+  image.classList.remove('is-zoomed');
   image.style.display = 'none';
   image.src = '';
   if (loader) loader.hidden = false;
@@ -798,6 +819,7 @@ function showPreviousPhoto(event) {
   if (event) event.stopPropagation();
   if (photoLightboxItems.length < 2) return;
   photoLightboxIndex = (photoLightboxIndex - 1 + photoLightboxItems.length) % photoLightboxItems.length;
+  photoLightboxScale = 1;
   renderPhotoLightbox();
 }
 
@@ -805,8 +827,25 @@ function showNextPhoto(event) {
   if (event) event.stopPropagation();
   if (photoLightboxItems.length < 2) return;
   photoLightboxIndex = (photoLightboxIndex + 1) % photoLightboxItems.length;
+  photoLightboxScale = 1;
   renderPhotoLightbox();
 }
+
+
+function setPhotoZoom(scale, event) {
+  if (event) event.stopPropagation();
+  const image = document.getElementById('photoLightboxImage');
+  const label = document.getElementById('photoLightboxZoomLabel');
+  if (!image) return;
+  photoLightboxScale = Math.max(1, Math.min(4, Number(scale) || 1));
+  image.style.transform = 'scale(' + photoLightboxScale + ')';
+  image.classList.toggle('is-zoomed', photoLightboxScale > 1);
+  if (label) label.textContent = Math.round(photoLightboxScale * 100) + '%';
+}
+
+function zoomPhotoIn(event) { setPhotoZoom(photoLightboxScale + 0.5, event); }
+function zoomPhotoOut(event) { setPhotoZoom(photoLightboxScale - 0.5, event); }
+function togglePhotoZoom(event) { setPhotoZoom(photoLightboxScale > 1 ? 1 : 2, event); }
 
 function closePhotoLightbox(event) {
   if (event) event.stopPropagation();
@@ -815,6 +854,7 @@ function closePhotoLightbox(event) {
   if (box) box.classList.remove('active');
   if (image) image.src = '';
   photoLightboxItems = [];
+  photoLightboxScale = 1;
   document.body.classList.remove('photo-lightbox-open');
 }
 
