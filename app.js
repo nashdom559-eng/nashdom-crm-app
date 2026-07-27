@@ -698,19 +698,7 @@ async function uploadRequestPhotos(
   const selected = files.slice(0, 3);
 
   for (let index = 0; index < selected.length; index++) {
-    const file = selected[index];
-    const number = index + 1;
-    showStatus('Сжимаю фото ' + number + ' из ' + selected.length + '…');
-
-    const compressed = await compressPhoto(file);
-    const originalKb = Math.max(1, Math.round((file.size || 0) / 1024));
-    const base64 = String(compressed.dataUrl || '').split(',')[1] || '';
-    const compressedKb = Math.max(1, Math.round(base64.length * 0.75 / 1024));
-
-    showStatus(
-      'Загружаю фото ' + number + ' из ' + selected.length +
-      ' (' + originalKb + ' → ' + compressedKb + ' КБ)…'
-    );
+    const compressed = await compressPhoto(selected[index]);
 
     await uploadPhotoPayload(
       {
