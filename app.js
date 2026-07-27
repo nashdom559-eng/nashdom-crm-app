@@ -4,6 +4,10 @@ const DATA_CACHE_KEY = 'nashdom_app_data_cache_v1';
 const OFFLINE_DB_NAME = 'nashdom_crm_offline';
 const OFFLINE_DB_VERSION = 1;
 const OFFLINE_QUEUE_STORE = 'requestQueue';
+const PHOTO_GALLERIES = Object.create(null);
+let photoGallerySequence = 0;
+let activePhotoGalleryId = '';
+let activePhotoIndex = 0;
 
 function getAccessKey() {
   let key = localStorage.getItem(ACCESS_KEY_STORAGE) || '';
@@ -483,7 +487,7 @@ function compressPhoto(file) {
       const image = new Image();
       image.onerror = function() { reject(new Error('Не удалось открыть фото')); };
       image.onload = function() {
-        const maxSide = 1280;
+        const maxSide = 1800;
         let width = image.width;
         let height = image.height;
         const scale = Math.min(1, maxSide / Math.max(width, height));
@@ -494,7 +498,7 @@ function compressPhoto(file) {
         canvas.height = height;
         canvas.getContext('2d').drawImage(image, 0, 0, width, height);
         resolve({
-          dataUrl: canvas.toDataURL('image/jpeg', 0.72),
+          dataUrl: canvas.toDataURL('image/jpeg', 0.78),
           fileName: String(file.name || 'photo.jpg').replace(/\.[^.]+$/, '') + '.jpg'
         });
       };
@@ -714,34 +718,135 @@ async function uploadRequestPhotos(
   }
 }
 
+function getDriveFileId(photo) {
+  if (!photo) return '';
+  if (photo.id) return String(photo.id);
+  const source = String(photo.url || photo.thumb || '');
+  const match = source.match(/[?&]id=([^&]+)/) || source.match(/\/d\/([^/]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function getPhotoDisplayUrl(photo) {
+  const id = getDriveFileId(photo);
+  if (id) return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w2000';
+  return String((photo && (photo.url || photo.thumb)) || '');
+}
+
+function getPhotoThumbUrl(photo) {
+  const id = getDriveFileId(photo);
+  if (photo && photo.thumb) return String(photo.thumb);
+  if (id) return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w800';
+  return String((photo && photo.url) || '');
+}
+
 function renderPhotoGallery(items, title) {
   if (!Array.isArray(items) || !items.length) return '';
+  const galleryId = 'photo-gallery-' + (++photoGallerySequence);
+  PHOTO_GALLERIES[galleryId] = items.slice();
+
   return '<div class="photo-gallery-block"><div class="photo-gallery-title">' + title + '</div><div class="photo-gallery">' +
-    items.map(function(photo) {
-      const src = photo.thumb || photo.url || '';
-      const href = photo.url || src;
-      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightbox(\'' + escapeJs(href) + '\')"><img src="' + escapeHtml(src) + '" alt="Фото заявки"></button>';
+    items.map(function(photo, index) {
+      const src = getPhotoThumbUrl(photo);
+      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightbox(\'' + galleryId + '\',' + index + ')">' +
+        '<img src="' + escapeHtml(src) + '" alt="Фото заявки" loading="lazy">' +
+      '</button>';
     }).join('') + '</div></div>';
 }
 
-function openPhotoLightbox(url) {
-  if (!url) return;
+function openPhotoLightbox(galleryId, index) {
+  const gallery = PHOTO_GALLERIES[galleryId];
+  if (!Array.isArray(gallery) || !gallery.length) return;
+  activePhotoGalleryId = galleryId;
+  activePhotoIndex = Math.max(0, Math.min(Number(index) || 0, gallery.length - 1));
+
   const box = document.getElementById('photoLightbox');
-  const image = document.getElementById('photoLightboxImage');
-  if (!box || !image) return;
-  image.src = url;
+  if (!box) return;
   box.classList.add('active');
+  box.setAttribute('aria-hidden', 'false');
   document.body.classList.add('photo-lightbox-open');
+  showActivePhoto();
+}
+
+function showActivePhoto() {
+  const gallery = PHOTO_GALLERIES[activePhotoGalleryId] || [];
+  const photo = gallery[activePhotoIndex];
+  const image = document.getElementById('photoLightboxImage');
+  const loader = document.getElementById('photoLightboxLoader');
+  const error = document.getElementById('photoLightboxError');
+  const counter = document.getElementById('photoLightboxCounter');
+  const prev = document.getElementById('photoLightboxPrev');
+  const next = document.getElementById('photoLightboxNext');
+  if (!image || !photo) return;
+
+  image.classList.remove('loaded');
+  image.removeAttribute('src');
+  if (loader) loader.hidden = false;
+  if (error) error.hidden = true;
+  if (counter) counter.textContent = (activePhotoIndex + 1) + ' / ' + gallery.length;
+  if (prev) prev.hidden = gallery.length < 2;
+  if (next) next.hidden = gallery.length < 2;
+
+  image.onload = function() {
+    image.classList.add('loaded');
+    if (loader) loader.hidden = true;
+  };
+  image.onerror = function() {
+    if (loader) loader.hidden = true;
+    if (error) error.hidden = false;
+  };
+  image.src = getPhotoDisplayUrl(photo);
+}
+
+function changePhotoLightbox(step, event) {
+  if (event) event.stopPropagation();
+  const gallery = PHOTO_GALLERIES[activePhotoGalleryId] || [];
+  if (gallery.length < 2) return;
+  activePhotoIndex = (activePhotoIndex + step + gallery.length) % gallery.length;
+  showActivePhoto();
 }
 
 function closePhotoLightbox(event) {
-  if (event) event.stopPropagation();
+  if (event) {
+    event.stopPropagation();
+    if (event.target && event.currentTarget && event.target !== event.currentTarget && !event.target.classList.contains('photo-lightbox-close')) return;
+  }
   const box = document.getElementById('photoLightbox');
   const image = document.getElementById('photoLightboxImage');
-  if (box) box.classList.remove('active');
-  if (image) image.src = '';
+  if (box) {
+    box.classList.remove('active');
+    box.setAttribute('aria-hidden', 'true');
+  }
+  if (image) image.removeAttribute('src');
+  activePhotoGalleryId = '';
+  activePhotoIndex = 0;
   document.body.classList.remove('photo-lightbox-open');
 }
+
+document.addEventListener('keydown', function(event) {
+  const box = document.getElementById('photoLightbox');
+  if (!box || !box.classList.contains('active')) return;
+  if (event.key === 'Escape') closePhotoLightbox();
+  if (event.key === 'ArrowLeft') changePhotoLightbox(-1);
+  if (event.key === 'ArrowRight') changePhotoLightbox(1);
+});
+
+let photoTouchStartX = 0;
+let photoTouchStartY = 0;
+document.addEventListener('touchstart', function(event) {
+  const box = document.getElementById('photoLightbox');
+  if (!box || !box.classList.contains('active') || event.touches.length !== 1) return;
+  photoTouchStartX = event.touches[0].clientX;
+  photoTouchStartY = event.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', function(event) {
+  const box = document.getElementById('photoLightbox');
+  if (!box || !box.classList.contains('active') || !event.changedTouches.length) return;
+  const dx = event.changedTouches[0].clientX - photoTouchStartX;
+  const dy = event.changedTouches[0].clientY - photoTouchStartY;
+  if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+  changePhotoLightbox(dx < 0 ? 1 : -1);
+}, { passive: true });
 
 function setupPhotoInputs() {
   ['beforePhotos', 'editBeforePhotos', 'editAfterPhotos'].forEach(function(inputId) {
