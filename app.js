@@ -374,21 +374,47 @@ function handleWalkHouseChange() {
 }
 
 function setRecordType(type) {
-  const allowed = ['resident', 'common', 'planned'];
+  const allowed = ['resident', 'common', 'planned', 'completed'];
   const nextType = allowed.includes(type) ? type : 'resident';
   setValue('recordType', nextType);
   document.querySelectorAll('.record-type-btn').forEach(function(button) { button.classList.toggle('active', button.dataset.recordType === nextType); });
   const residentFields=document.getElementById('residentFields'); const commonFields=document.getElementById('commonFields'); const residentContacts=document.getElementById('residentContactFields'); const emergencyBlock=document.getElementById('emergencyBlock'); const descriptionLabel=document.getElementById('descriptionLabel'); const planDateLabel=document.getElementById('planDateLabel'); const description=document.getElementById('description');
-  const contactNameLabel=document.getElementById('contactNameLabel'); const contactPhoneLabel=document.getElementById('contactPhoneLabel'); const commonContactHint=document.getElementById('commonContactHint');
-  if(residentFields) residentFields.hidden=nextType!=='resident'; if(commonFields) commonFields.hidden=nextType==='resident'; if(residentContacts) residentContacts.hidden=nextType==='planned'; if(emergencyBlock) emergencyBlock.hidden=nextType==='planned';
+  const contactNameLabel=document.getElementById('contactNameLabel'); const contactPhoneLabel=document.getElementById('contactPhoneLabel'); const commonContactHint=document.getElementById('commonContactHint'); const planDate=document.getElementById('planDate'); const saveBtn=document.getElementById('saveBtn'); const beforePhotosLabel=document.getElementById('beforePhotosLabel');
+  const isCompleted=nextType==='completed';
+  if(residentFields) residentFields.hidden=nextType!=='resident'; if(commonFields) commonFields.hidden=nextType==='resident'; if(residentContacts) residentContacts.hidden=nextType==='planned'||isCompleted; if(emergencyBlock) emergencyBlock.hidden=nextType==='planned'||isCompleted;
   if(contactNameLabel) contactNameLabel.textContent=nextType==='common'?'4. Кто сообщил / как обращаться':'4. ФИО / как обращаться';
   if(contactPhoneLabel) contactPhoneLabel.textContent=nextType==='common'?'5. Телефон сообщившего':'5. Телефон';
   if(commonContactHint) commonContactHint.hidden=nextType!=='common';
-  if(descriptionLabel) descriptionLabel.textContent=nextType==='planned'?'3. Что нужно сделать':nextType==='common'?'3. Неисправность / задача':'3. Заявка';
-  if(planDateLabel) planDateLabel.textContent=nextType==='planned'?'4. Срок выполнения':'6. Плановый визит';
-  if(description) description.placeholder=nextType==='planned'?'Например: заменить манометр на обратке':nextType==='common'?'Например: подтекает сальник насоса отопления':'Например: течёт стояк';
-  if(nextType==='planned') setChecked('isEmergency',false);
+  if(descriptionLabel) descriptionLabel.textContent=nextType==='planned'?'3. Что нужно сделать':isCompleted?'3. Что выполнено':nextType==='common'?'3. Неисправность / задача':'3. Заявка';
+  if(planDateLabel) { planDateLabel.textContent=nextType==='planned'?'4. Срок выполнения':isCompleted?'Дата выполнения':'6. Плановый визит'; planDateLabel.hidden=isCompleted; }
+  if(planDate) planDate.hidden=isCompleted;
+  if(description) description.placeholder=nextType==='planned'?'Например: заменить манометр на обратке':isCompleted?'Например: выполнена обработка мест общего пользования от тараканов':nextType==='common'?'Например: подтекает сальник насоса отопления':'Например: течёт стояк';
+  if(beforePhotosLabel) beforePhotosLabel.textContent=isCompleted?'Фотографии выполненной работы (до 3)':'Фотографии «до» (до 3)';
+  if(saveBtn) saveBtn.textContent=isCompleted?'Сохранить как выполненную':'Сохранить';
+  if(nextType==='planned'||isCompleted) setChecked('isEmergency',false);
+  setNewRecordStatus('');
 }
+
+function setNewRecordStatus(message, isError) {
+  const box = document.getElementById('newRecordStatus');
+  if (!box) return;
+  box.textContent = message || '';
+  box.classList.toggle('error', Boolean(isError));
+  box.classList.toggle('success', Boolean(message) && !isError);
+}
+
+function failNewRecord(message, elementId) {
+  setNewRecordStatus(message, true);
+  showStatus(message, true);
+  const element = elementId ? document.getElementById(elementId) : null;
+  if (element) {
+    element.classList.add('field-error');
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window.setTimeout(function() { element.focus(); }, 150);
+    window.setTimeout(function() { element.classList.remove('field-error'); }, 1800);
+  }
+}
+
 function toggleCustomLocation(){const s=document.getElementById('commonLocation');const c=document.getElementById('customLocation');if(!s||!c)return;c.hidden=s.value!=='Другое';if(c.hidden)c.value='';else c.focus();}
 function getCommonLocationValue(){const selected=getValue('commonLocation');const custom=getValue('customLocation');const details=getValue('commonLocationDetails');const location=selected==='Другое'?custom:selected;return [location,details].filter(Boolean).join(' — ');}
 function getRecordTypeLabel(req){if(req.category==='Плановая работа')return '🛠 Плановая работа';if(req.category==='Общее имущество')return '🏢 Общее имущество';return '';}
@@ -677,7 +703,8 @@ async function uploadRequestPhotos(
   files,
   rowNumber,
   requestId,
-  kind
+  kind,
+  onProgress
 ) {
   const existingRequest = (CRM.data.allRequests || []).find(function(item) {
     if (rowNumber && Number(item.rowNumber) === Number(rowNumber)) return true;
@@ -698,7 +725,9 @@ async function uploadRequestPhotos(
   const selected = files.slice(0, 3);
 
   for (let index = 0; index < selected.length; index++) {
+    if (onProgress) onProgress('Сжимаю фото ' + (index + 1) + ' из ' + selected.length + '…');
     const compressed = await compressPhoto(selected[index]);
+    if (onProgress) onProgress('Загружаю фото ' + (index + 1) + ' из ' + selected.length + '…');
 
     await uploadPhotoPayload(
       {
@@ -923,6 +952,7 @@ function saveRequest() {
   const recordType = getValue('recordType') || 'resident';
   const isResident = recordType === 'resident';
   const isPlanned = recordType === 'planned';
+  const isCompleted = recordType === 'completed';
   const selectedHouse = getValue('house');
   const houseValue = getSelectedHouseValue();
 
@@ -930,16 +960,18 @@ function saveRequest() {
     house: houseValue,
     flat: isResident ? getValue('flat') : getCommonLocationValue(),
     description: getValue('description'),
-    name: isPlanned ? getValue('recordSource') : (getValue('name') || (isResident ? '' : getValue('recordSource'))),
-    phone: isPlanned ? '' : getValue('phone'),
-    planDate: getValue('planDate'),
-    isEmergency: isPlanned ? false : getChecked('isEmergency'),
+    name: (isPlanned || isCompleted) ? getValue('recordSource') : (getValue('name') || (isResident ? '' : getValue('recordSource'))),
+    phone: (isPlanned || isCompleted) ? '' : getValue('phone'),
+    planDate: isCompleted ? '' : getValue('planDate'),
+    isEmergency: (isPlanned || isCompleted) ? false : getChecked('isEmergency'),
     category:
       recordType === 'common'
         ? 'Общее имущество'
         : recordType === 'planned'
           ? 'Плановая работа'
-          : '',
+          : recordType === 'completed'
+            ? 'Общее имущество'
+            : '',
     source:
       selectedHouse === '__OTHER__'
         ? 'Разовый адрес'
@@ -947,47 +979,38 @@ function saveRequest() {
           ? 'Вручную / Общее имущество / ' + getValue('recordSource')
           : recordType === 'planned'
             ? 'Вручную / Плановая работа'
-            : 'Вручную'
+            : recordType === 'completed'
+              ? 'Вручную / Выполненная работа'
+              : 'Вручную'
   };
 
   if (!data.house) {
-    return showStatus(
-      selectedHouse === '__OTHER__'
-        ? 'Введи адрес'
-        : 'Выбери дом',
-      true
-    );
+    return failNewRecord(selectedHouse === '__OTHER__' ? 'Введи адрес' : 'Выбери дом', selectedHouse === '__OTHER__' ? 'otherAddress' : 'house');
   }
 
   if (!data.flat) {
-    return showStatus(
-      isResident
-        ? selectedHouse === '__OTHER__'
-          ? 'Укажи помещение, квартиру или объект'
-          : 'Заполни квартиру'
-        : 'Укажи место или объект',
-      true
-    );
+    return failNewRecord(isResident ? (selectedHouse === '__OTHER__' ? 'Укажи помещение, квартиру или объект' : 'Заполни квартиру') : 'Укажи место или объект', isResident ? 'flat' : (getValue('commonLocation') === 'Другое' ? 'customLocation' : 'commonLocation'));
   }
 
   if (!data.description) {
-    return showStatus(
-      isPlanned ? 'Опиши плановую работу' : 'Заполни заявку',
-      true
-    );
+    return failNewRecord(isPlanned ? 'Опиши плановую работу' : isCompleted ? 'Напиши, что выполнено' : 'Заполни заявку', 'description');
   }
 
   if (isPlanned && !data.planDate) {
-    return showStatus('Укажи срок плановой работы', true);
+    return failNewRecord('Укажи срок плановой работы', 'planDate');
   }
 
   if (!beginActionFeedback(
     btn,
-    'Сохраняю заявку…',
-    'Google Таблицы отвечают медленнее обычного. Заявка сохраняется — повторно нажимать не нужно.'
+    isCompleted ? 'Сохраняю выполненную работу…' : 'Сохраняю заявку…',
+    'Google Таблицы отвечают медленнее обычного. Запись сохраняется — повторно нажимать не нужно.'
   )) return;
 
   const pendingPhotos = getSelectedFiles('beforePhotos');
+  if (isCompleted && !navigator.onLine) {
+    endActionFeedback(btn);
+    return failNewRecord('Для сохранения сразу выполненной работы нужен интернет', 'saveBtn');
+  }
   if (!navigator.onLine) {
     queueRequestOffline(data, pendingPhotos).then(function() {
       clearNewRequestDraft();
@@ -1022,13 +1045,32 @@ function saveRequest() {
           alert(error.message);
         }
       }
-      showStatus(result.message || 'Запись сохранена');
-      clearNewRequestDraft();
-      clearNewRequestForm();
-      setRecordType('resident');
+      const finishSave = function(message) {
+        setNewRecordStatus(message || '✓ Сохранено', false);
+        showStatus(message || 'Запись сохранена');
+        clearNewRequestDraft();
+        clearNewRequestForm();
+        setRecordType('resident');
+        endActionFeedback(btn, '✓ Сохранено');
+        loadData({ silent: true });
+      };
 
-      endActionFeedback(btn, '✓ Сохранено');
-      loadData({ silent: true });
+      if (isCompleted) {
+        apiCall('closeRequest', {
+          rowNumber: result.rowNumber,
+          comment: 'Работа внесена сразу как выполненная'
+        }, function(closeResult) {
+          finishSave(closeResult.message || 'Выполненная работа сохранена');
+        }, function(closeError) {
+          endActionFeedback(btn);
+          setNewRecordStatus('Запись создана, но не переведена в выполненные: ' + closeError, true);
+          showStatus('Запись создана, но не переведена в выполненные: ' + closeError, true);
+          loadData({ silent: true });
+        });
+        return;
+      }
+
+      finishSave(result.message || 'Запись сохранена');
     },
     function(error) {
       if (String(error || '').includes('подключиться')) {
@@ -1896,10 +1938,21 @@ function confirmHoldRequest() {
   );
 }
 
+function setDoneActionStatus(message, isError) {
+  const box = document.getElementById('doneActionStatus');
+  if (!box) return;
+  box.textContent = message || '';
+  box.classList.toggle('error', Boolean(isError));
+  box.classList.toggle('success', Boolean(message) && !isError);
+}
+
 function openDoneModal(rowNumber) {
   CRM.state.currentDoneRowNumber = rowNumber;
 
   setValue('doneComment', '');
+  setDoneActionStatus('');
+  const doneButton = document.getElementById('doneConfirmBtn');
+  if (doneButton) endActionFeedback(doneButton);
   const afterPhotos = document.getElementById('afterPhotos');
   if (afterPhotos) afterPhotos.value = '';
 
@@ -1920,25 +1973,54 @@ async function confirmDoneRequest() {
   const rowNumber = CRM.state.currentDoneRowNumber;
   if (!rowNumber) return;
 
+  const button = document.getElementById('doneConfirmBtn');
+  const cancelButton = document.getElementById('doneCancelBtn');
+  if (!beginActionFeedback(
+    button,
+    'Выполняю…',
+    'Сохранение занимает больше времени обычного. Не закрывай окно и не нажимай повторно.'
+  )) return;
+
+  if (cancelButton) cancelButton.disabled = true;
+  setDoneActionStatus('Подготавливаю сохранение…');
+
   const photos = getSelectedFiles('afterPhotos');
   if (photos.length) {
     try {
-      await uploadRequestPhotos(photos, rowNumber, '', 'after');
+      await uploadRequestPhotos(photos, rowNumber, '', 'after', function(message) {
+        setDoneActionStatus(message);
+        if (button) button.textContent = message;
+      });
     } catch (error) {
-      alert('Не удалось загрузить фото: ' + error.message);
+      endActionFeedback(button);
+      if (cancelButton) cancelButton.disabled = false;
+      setDoneActionStatus('Не удалось загрузить фото: ' + error.message, true);
+      showStatus('Не удалось загрузить фото: ' + error.message, true);
       return;
     }
   }
+
+  setDoneActionStatus('Сохраняю статус «Выполнено»…');
+  if (button) button.textContent = 'Сохраняю статус…';
 
   apiCall('closeRequest', {
     rowNumber: rowNumber,
     comment: getValue('doneComment')
   }, function(result) {
-    closeDoneModal();
-    showStatus(result.message || 'Заявка выполнена');
-    loadData();
+    const message = result.message || 'Заявка выполнена';
+    setDoneActionStatus('✓ ' + message);
+    showStatus('✓ ' + message);
+    endActionFeedback(button, '✓ Выполнено', 1600);
+    if (cancelButton) cancelButton.disabled = false;
+    loadData({ silent: true });
+    window.setTimeout(function() {
+      closeDoneModal();
+    }, 700);
   }, function(error) {
-    showStatus('Ошибка: ' + error, true);
+    endActionFeedback(button);
+    if (cancelButton) cancelButton.disabled = false;
+    setDoneActionStatus('Ошибка сохранения: ' + error, true);
+    showStatus('Ошибка сохранения: ' + error, true);
   });
 }
 

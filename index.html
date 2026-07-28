@@ -24,7 +24,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.3.3<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.4.0<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -51,6 +51,7 @@
           <button type="button" class="record-type-btn active" data-record-type="resident" onclick="setRecordType('resident')">🏠 Заявка квартиры</button>
           <button type="button" class="record-type-btn" data-record-type="common" onclick="setRecordType('common')">🏢 Общее имущество</button>
           <button type="button" class="record-type-btn" data-record-type="planned" onclick="setRecordType('planned')">🛠 Плановая работа</button>
+          <button type="button" class="record-type-btn" data-record-type="completed" onclick="setRecordType('completed')">✅ Выполненная работа</button>
         </div>
         <input id="recordType" type="hidden" value="resident">
         <label>1. Дом</label><select id="house" onchange="handleHouseChange()"></select>
@@ -76,7 +77,7 @@
         <label id="descriptionLabel">3. Заявка</label>
         <div class="voice-field"><textarea id="description" enterkeyhint="next" placeholder="Например: течёт стояк"></textarea><button id="voiceBtn" type="button" class="voice-btn" onclick="toggleVoiceInput()">🎙 Говорить</button></div>
         <div id="voiceStatus" class="voice-status"></div>
-        <label>Фотографии «до» (до 3)</label>
+        <label id="beforePhotosLabel">Фотографии «до» (до 3)</label>
         <input id="beforePhotos" class="photo-input" type="file" accept="image/*" multiple>
         <div id="beforePhotosPreview" class="selected-photo-preview"></div>
         <label id="emergencyBlock" class="emergency-toggle"><input id="isEmergency" type="checkbox"><span>🚨 Аварийная заявка</span></label>
@@ -88,7 +89,8 @@
           <div id="commonContactHint" class="field-hint" hidden>Для общедомовой заявки можно указать жителя, председателя или другого человека, который сообщил о проблеме.</div>
         </div>
         <label id="planDateLabel">6. Плановый визит</label><input id="planDate" type="datetime-local">
-        <button id="saveBtn" onclick="saveRequest()">Сохранить</button>
+        <div id="newRecordStatus" class="new-record-status" role="status" aria-live="polite"></div>
+        <button id="saveBtn" type="button" onclick="saveRequest()">Сохранить</button>
       </main>
     </section>
 
@@ -189,9 +191,10 @@
         <textarea id="doneComment" placeholder="Например: заменили прокладку, течь устранена"></textarea>
         <label>Фотографии «после» (до 3)</label>
         <input id="afterPhotos" class="photo-input" type="file" accept="image/*" multiple>
+        <div id="doneActionStatus" class="modal-action-status" role="status" aria-live="polite"></div>
         <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeDoneModal()">Отмена</button>
-          <button type="button" class="modal-ok" onclick="confirmDoneRequest()">Выполнить</button>
+          <button id="doneCancelBtn" type="button" class="modal-cancel" onclick="closeDoneModal()">Отмена</button>
+          <button id="doneConfirmBtn" type="button" class="modal-ok" onclick="confirmDoneRequest()">Выполнить</button>
         </div>
       </div>
     </div>
@@ -464,7 +467,7 @@
     <button type="button" id="photoLightboxNext" class="photo-lightbox-nav photo-lightbox-next" onclick="showNextPhoto(event)" aria-label="Следующее фото">›</button>
   </div>
 
-  <script src="./app.js?v=1.3.3"></script>
+  <script src="./app.js?v=1.4.0"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>

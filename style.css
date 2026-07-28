@@ -1166,3 +1166,19 @@ button.is-saving::before {
 .photo-lightbox-tools{position:fixed;left:50%;top:14px;z-index:10002;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:999px;background:rgba(0,0,0,.58);color:#fff;font-weight:700}
 .photo-lightbox-tools button{width:34px;height:34px;min-height:0;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:24px;line-height:30px}
 .photo-lightbox-tools span{min-width:48px;text-align:center;font-size:13px}
+
+/* v1.3.4 — выполненные работы и понятная проверка формы */
+.new-record-status{min-height:20px;margin:8px 0 4px;font-size:13px;font-weight:700;color:#166534}
+.new-record-status:empty{display:none}
+.new-record-status.error{display:block;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 11px}
+.new-record-status.success{display:block;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 11px}
+.field-error{outline:3px solid rgba(220,38,38,.22)!important;border-color:#dc2626!important}
+@media(min-width:700px){.record-type-grid{grid-template-columns:repeat(4,1fr)}}
+
+
+/* v1.4.0 — видимый процесс выполнения заявки */
+.modal-action-status{min-height:20px;margin:12px 0 2px;padding:0 2px;font-size:13px;font-weight:700;color:#334155}
+.modal-action-status:empty{display:none}
+.modal-action-status.success{display:block;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 11px}
+.modal-action-status.error{display:block;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 11px}
+.modal-actions button:disabled{opacity:.65;cursor:wait}
