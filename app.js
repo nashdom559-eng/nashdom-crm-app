@@ -1,3 +1,16 @@
+
+// PWA работает только в портретной ориентации. Manifest задаёт основной режим,
+// а этот вызов дополнительно фиксирует его там, где браузер это поддерживает.
+function lockPortraitOrientation() {
+  try {
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      screen.orientation.lock('portrait-primary').catch(function() {});
+    }
+  } catch (error) {}
+}
+document.addEventListener('DOMContentLoaded', lockPortraitOrientation);
+window.addEventListener('orientationchange', lockPortraitOrientation);
+
 const ACCESS_KEY_STORAGE = 'nashdom_api_access_key';
 const DRAFT_STORAGE_KEY = 'nashdom_new_request_draft_v1';
 const DATA_CACHE_KEY = 'nashdom_app_data_cache_v1';
@@ -435,14 +448,14 @@ function toggleOtherAddressField() {
   if (flatLabel) {
     flatLabel.textContent = isOther
       ? '2. Помещение / квартира'
-      : '2. Квартира';
+      : '2. Квартира / помещение';
   }
 
   if (flat) {
-    flat.inputMode = isOther ? 'text' : 'numeric';
+    flat.inputMode = 'text';
     flat.placeholder = isOther
       ? 'Например: офис 3, магазин, кв. 27'
-      : 'Например: 63';
+      : 'Например: 63, гостиница, офис 3';
   }
 
   if (isOther) {

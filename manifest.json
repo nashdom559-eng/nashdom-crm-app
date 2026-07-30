@@ -4,7 +4,7 @@
   "short_name": "НашДом",
   "description": "Учёт и сопровождение заявок по обслуживаемым домам",
   "lang": "ru-RU",
-  "start_url": "./?app=v1.3.0",
+  "start_url": "./?app=v1.4.1",
   "scope": "./",
   "display": "standalone",
   "display_override": [
@@ -12,7 +12,7 @@
     "standalone",
     "minimal-ui"
   ],
-  "orientation": "any",
+  "orientation": "portrait-primary",
   "background_color": "#f3f4f6",
   "theme_color": "#2563eb",
   "categories": [
