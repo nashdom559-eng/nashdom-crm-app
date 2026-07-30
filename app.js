@@ -51,6 +51,7 @@ const CRM = {
     currentPlanRowNumber: null,
     currentHoldRowNumber: null,
     currentEmergencyRowNumber: null,
+    currentEmergencyOperationId: null,
     currentEditRowNumber: null,
     currentReopenRowNumber: null,
     currentDeleteRowNumber: null,
@@ -779,7 +780,7 @@ function getFullPhotoUrl(photo) {
   return String((photo && (photo.thumb || photo.url)) || '');
 }
 
-function renderPhotoGallery(items, title) {
+function renderPhotoGallery(items, title, rowNumber, kind) {
   if (!Array.isArray(items) || !items.length) return '';
   const encoded = encodeURIComponent(JSON.stringify(items));
   const visible = items.slice(0, 4);
@@ -789,8 +790,24 @@ function renderPhotoGallery(items, title) {
       const more = index === 3 && items.length > 4
         ? '<span class="photo-thumb-more">+' + (items.length - 4) + '</span>'
         : '';
-      return '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightboxGallery(\'' + encoded + '\',' + index + ')"><img src="' + escapeHtml(src) + '" alt="Фото заявки">' + more + '</button>';
+      const photoId = escapeJs(getDriveFileId(photo));
+      return '<div class="photo-thumb-wrap">' +
+        '<button type="button" class="photo-thumb-btn" onclick="openPhotoLightboxGallery(\'' + encoded + '\',' + index + ')"><img src="' + escapeHtml(src) + '" alt="Фото заявки">' + more + '</button>' +
+        '<button type="button" class="photo-delete-btn" aria-label="Удалить фото" onclick="event.stopPropagation(); deleteRequestPhoto(' + Number(rowNumber || 0) + ',\'' + escapeJs(kind || 'before') + '\',\'' + photoId + '\')">×</button>' +
+      '</div>';
     }).join('') + '</div></div>';
+}
+
+function deleteRequestPhoto(rowNumber, kind, photoId) {
+  if (!rowNumber || !photoId) return;
+  if (!window.confirm('Удалить эту фотографию? Отменить действие будет нельзя.')) return;
+  showStatus('Удаляю фотографию…');
+  apiCall('deleteRequestPhoto', { rowNumber: rowNumber, kind: kind, photoId: photoId }, function(result) {
+    showStatus(result.message || 'Фотография удалена');
+    loadData({ silent: true });
+  }, function(error) {
+    showStatus('Не удалось удалить фотографию: ' + error, true);
+  });
 }
 
 function openPhotoLightboxGallery(encodedItems, index) {
@@ -1316,8 +1333,8 @@ function renderRequestCard(req, showActions) {
       : '';
 
   const photoGalleries =
-    renderPhotoGallery(req.photosBefore, '📷 До') +
-    renderPhotoGallery(req.photosAfter, '📷 После');
+    renderPhotoGallery(req.photosBefore, '📷 До', req.rowNumber, 'before') +
+    renderPhotoGallery(req.photosAfter, '📷 После', req.rowNumber, 'after');
 
   const actions =
     showActions && req.status !== 'Выполнено'
@@ -1628,8 +1645,8 @@ function openEditModal(rowNumber) {
   const existingPhotos = document.getElementById('editExistingPhotos');
   if (existingPhotos) {
     existingPhotos.innerHTML =
-      renderPhotoGallery(req.photosBefore, '📷 До') +
-      renderPhotoGallery(req.photosAfter, '📷 После') ||
+      renderPhotoGallery(req.photosBefore, '📷 До', req.rowNumber, 'before') +
+      renderPhotoGallery(req.photosAfter, '📷 После', req.rowNumber, 'after') ||
       '<div class="empty-note">Фотографий пока нет</div>';
   }
 
@@ -1790,14 +1807,18 @@ function renderEmergencyTimeline(events) {
     return '<div class="emergency-timeline empty-timeline">Хронология пока пустая</div>';
   }
 
-  const visible = events.slice(-8);
+  const visible = events.slice(-12);
 
   return `
     <div class="emergency-timeline">
       <div class="timeline-title">Хронология аварии</div>
       ${visible.map(function(event) {
+        const deleteButton = event.id
+          ? '<button type="button" class="timeline-delete-btn" onclick="deleteEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\')" aria-label="Удалить запись">🗑</button>'
+          : '';
         return `
           <div class="timeline-item">
+            ${deleteButton}
             <div class="timeline-date">${escapeHtml(event.date || '')}</div>
             <div class="timeline-stage">${escapeHtml(event.stage || '')}</div>
             ${event.comment
@@ -1810,10 +1831,27 @@ function renderEmergencyTimeline(events) {
   `;
 }
 
+function deleteEmergencyTimelineEvent(eventId) {
+  if (!eventId) return;
+  if (!window.confirm('Удалить эту запись из хронологии аварии?')) return;
+  showStatus('Удаляю запись…');
+  apiCall('deleteEmergencyEvent', { eventId: eventId }, function(result) {
+    showStatus(result.message || 'Запись удалена');
+    loadData({ silent: true });
+  }, function(error) {
+    showStatus('Не удалось удалить запись: ' + error, true);
+  });
+}
+
 function openEmergencyModal(rowNumber) {
   CRM.state.currentEmergencyRowNumber = rowNumber;
   setValue('emergencyStage', 'ARRIVED');
   setValue('emergencyComment', '');
+  CRM.state.currentEmergencyOperationId = 'emg_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+  const status = document.getElementById('emergencyActionStatus');
+  if (status) status.textContent = '';
+  const btn = document.getElementById('emergencyConfirmBtn');
+  if (btn) endActionFeedback(btn);
 
   const modal = document.getElementById('emergencyModal');
   if (modal) modal.classList.add('active');
@@ -1821,6 +1859,7 @@ function openEmergencyModal(rowNumber) {
 
 function closeEmergencyModal() {
   CRM.state.currentEmergencyRowNumber = null;
+  CRM.state.currentEmergencyOperationId = null;
   const photos = document.getElementById('emergencyPhotos');
   if (photos) photos.value = '';
 
@@ -1828,35 +1867,60 @@ function closeEmergencyModal() {
   if (modal) modal.classList.remove('active');
 }
 
-function confirmEmergencyEvent() {
+async function confirmEmergencyEvent() {
   const rowNumber = CRM.state.currentEmergencyRowNumber;
   if (!rowNumber) return;
-  const photos = getSelectedFiles('emergencyPhotos');
 
-  apiCall(
-    'addEmergencyEvent',
-    {
+  const button = document.getElementById('emergencyConfirmBtn');
+  const cancelButton = document.getElementById('emergencyCancelBtn');
+  const statusBox = document.getElementById('emergencyActionStatus');
+  if (!beginActionFeedback(button, 'Сохраняю этап…', 'Сохранение продолжается. Повторно нажимать не нужно.')) return;
+  if (cancelButton) cancelButton.disabled = true;
+
+  function setEmergencyStatus(message, isError) {
+    if (statusBox) {
+      statusBox.textContent = message || '';
+      statusBox.classList.toggle('error', Boolean(isError));
+      statusBox.classList.toggle('success', Boolean(message) && !isError);
+    }
+    if (message) showStatus(message, Boolean(isError));
+  }
+
+  const photos = getSelectedFiles('emergencyPhotos');
+  const operationId = CRM.state.currentEmergencyOperationId || ('emg_' + Date.now() + '_' + Math.floor(Math.random() * 1000000));
+  CRM.state.currentEmergencyOperationId = operationId;
+  setEmergencyStatus('Сохраняю этап аварии…');
+
+  try {
+    const result = await apiCallPromise('addEmergencyEvent', {
       rowNumber: rowNumber,
       stage: getValue('emergencyStage'),
-      comment: getValue('emergencyComment')
-    },
-    async function(result) {
-      try {
-        if (photos.length) {
-          showStatus('Этап записан, загружаю фото...');
-          await uploadRequestPhotos(photos, rowNumber, '', 'after');
-        }
-        closeEmergencyModal();
-        showStatus(photos.length ? 'Этап аварии и фото сохранены' : (result.message || 'Этап аварии записан'));
-        loadData();
-      } catch (error) {
-        showStatus('Этап записан, но фото не загрузились: ' + error.message, true);
-      }
-    },
-    function(error) {
-      showStatus('Ошибка: ' + error, true);
+      comment: getValue('emergencyComment'),
+      operationId: operationId
+    });
+
+    if (photos.length) {
+      await uploadRequestPhotos(photos, rowNumber, '', 'after', function(message) {
+        setEmergencyStatus(message);
+        if (button) button.textContent = message;
+      });
     }
-  );
+
+    setEmergencyStatus('Обновляю карточку…');
+    await apiCallPromise('getAppData', null).then(function(data) {
+      applyAppData(data);
+      saveCachedAppData(CRM.data);
+    });
+
+    setEmergencyStatus('✓ ' + (result.message || 'Этап аварии сохранён'));
+    endActionFeedback(button, '✓ Сохранено', 1400);
+    if (cancelButton) cancelButton.disabled = false;
+    window.setTimeout(closeEmergencyModal, 650);
+  } catch (error) {
+    endActionFeedback(button);
+    if (cancelButton) cancelButton.disabled = false;
+    setEmergencyStatus('Ошибка: ' + error.message, true);
+  }
 }
 
 function openPlanModal(rowNumber, currentValue) {

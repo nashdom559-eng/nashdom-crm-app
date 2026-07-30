@@ -24,7 +24,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.4.1<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v1.5.0<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -247,9 +247,10 @@
         <label>Фотографии этапа (до 3)</label>
         <input id="emergencyPhotos" class="photo-input" type="file" accept="image/*" multiple>
 
+        <div id="emergencyActionStatus" class="action-status" aria-live="polite"></div>
         <div class="modal-actions">
-          <button type="button" class="modal-cancel" onclick="closeEmergencyModal()">Отмена</button>
-          <button type="button" class="emergency-save" onclick="confirmEmergencyEvent()">Записать</button>
+          <button type="button" class="modal-cancel" id="emergencyCancelBtn" onclick="closeEmergencyModal()">Отмена</button>
+          <button type="button" class="emergency-save" id="emergencyConfirmBtn" onclick="confirmEmergencyEvent()">Записать</button>
         </div>
       </div>
     </div>
@@ -467,7 +468,7 @@
     <button type="button" id="photoLightboxNext" class="photo-lightbox-nav photo-lightbox-next" onclick="showNextPhoto(event)" aria-label="Следующее фото">›</button>
   </div>
 
-  <script src="./app.js?v=1.4.1"></script>
+  <script src="./app.js?v=1.5.0"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>

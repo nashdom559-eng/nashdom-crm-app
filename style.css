@@ -1182,3 +1182,23 @@ button.is-saving::before {
 .modal-action-status.success{display:block;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:9px 11px}
 .modal-action-status.error{display:block;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 11px}
 .modal-actions button:disabled{opacity:.65;cursor:wait}
+
+/* v1.5.0: управление аварийными записями и фотографиями */
+.photo-thumb-wrap { position: relative; min-width: 0; }
+.photo-thumb-wrap .photo-thumb-btn { width: 100%; height: 100%; }
+.photo-delete-btn {
+  position: absolute; top: 5px; right: 5px; z-index: 3;
+  width: 30px; height: 30px; border: 0; border-radius: 50%;
+  background: rgba(155, 24, 24, .92); color: #fff; font-size: 22px;
+  line-height: 28px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.timeline-item { position: relative; padding-right: 44px; }
+.timeline-delete-btn {
+  position: absolute; top: 8px; right: 4px; width: 34px; height: 34px;
+  border: 0; border-radius: 10px; background: #fff0f0; font-size: 17px;
+}
+.action-status { min-height: 24px; margin: 8px 0 12px; font-weight: 700; color: #215f36; }
+.action-status.error { color: #a11f1f; }
+.action-status.success { color: #18743c; }
+button.is-saving { opacity: .82; cursor: wait; }
+button.is-saving::before { content: '⏳ '; }
