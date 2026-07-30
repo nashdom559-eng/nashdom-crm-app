@@ -10,6 +10,8 @@ function lockPortraitOrientation() {
 }
 document.addEventListener('DOMContentLoaded', lockPortraitOrientation);
 window.addEventListener('orientationchange', lockPortraitOrientation);
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) lockPortraitOrientation(); });
+window.addEventListener('pageshow', lockPortraitOrientation);
 
 const ACCESS_KEY_STORAGE = 'nashdom_api_access_key';
 const DRAFT_STORAGE_KEY = 'nashdom_new_request_draft_v1';
@@ -56,7 +58,8 @@ const CRM = {
     currentReopenRowNumber: null,
     currentDeleteRowNumber: null,
     currentDispatchRowNumber: null,
-    journalFilter: 'all'
+    journalFilter: 'all',
+    emergencySaveInFlight: false
   }
 };
 
@@ -1813,9 +1816,7 @@ function renderEmergencyTimeline(events) {
     <div class="emergency-timeline">
       <div class="timeline-title">Хронология аварии</div>
       ${visible.map(function(event) {
-        const deleteButton = event.id
-          ? '<button type="button" class="timeline-delete-btn" onclick="deleteEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\')" aria-label="Удалить запись">🗑</button>'
-          : '';
+        const deleteButton = event.id ? '<div class="timeline-actions"><button type="button" class="timeline-edit-btn" onclick="editEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\',\'' + escapeJs(event.stage || '') + '\',\'' + escapeJs(event.comment || '') + '\')" aria-label="Редактировать запись">✏️</button><button type="button" class="timeline-delete-btn" onclick="deleteEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\')" aria-label="Удалить запись">🗑</button></div>' : '';
         return `
           <div class="timeline-item">
             ${deleteButton}
@@ -1829,6 +1830,20 @@ function renderEmergencyTimeline(events) {
       }).join('')}
     </div>
   `;
+}
+
+
+function editEmergencyTimelineEvent(eventId, currentStage, currentComment) {
+  if (!eventId) return;
+  const stage = window.prompt('Название этапа:', currentStage || '');
+  if (stage === null) return;
+  const comment = window.prompt('Комментарий:', currentComment || '');
+  if (comment === null) return;
+  showStatus('Сохраняю изменения…');
+  apiCall('updateEmergencyEvent', { eventId: eventId, stage: stage.trim(), comment: comment.trim() }, function(result) {
+    showStatus(result.message || 'Запись обновлена');
+    loadData({ silent: true });
+  }, function(error) { showStatus('Не удалось изменить запись: ' + error, true); });
 }
 
 function deleteEmergencyTimelineEvent(eventId) {
@@ -1869,7 +1884,8 @@ function closeEmergencyModal() {
 
 async function confirmEmergencyEvent() {
   const rowNumber = CRM.state.currentEmergencyRowNumber;
-  if (!rowNumber) return;
+  if (!rowNumber || CRM.state.emergencySaveInFlight) return;
+  CRM.state.emergencySaveInFlight = true;
 
   const button = document.getElementById('emergencyConfirmBtn');
   const cancelButton = document.getElementById('emergencyCancelBtn');
@@ -1915,10 +1931,13 @@ async function confirmEmergencyEvent() {
     setEmergencyStatus('✓ ' + (result.message || 'Этап аварии сохранён'));
     endActionFeedback(button, '✓ Сохранено', 1400);
     if (cancelButton) cancelButton.disabled = false;
+    CRM.state.currentEmergencyOperationId = null;
+    CRM.state.emergencySaveInFlight = false;
     window.setTimeout(closeEmergencyModal, 650);
   } catch (error) {
     endActionFeedback(button);
     if (cancelButton) cancelButton.disabled = false;
+    CRM.state.emergencySaveInFlight = false;
     setEmergencyStatus('Ошибка: ' + error.message, true);
   }
 }
