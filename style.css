@@ -1203,7 +1203,5 @@ button.is-saving::before {
 button.is-saving { opacity: .82; cursor: wait; }
 button.is-saving::before { content: '⏳ '; }
 
-.timeline-actions{position:absolute;top:8px;right:4px;display:flex;gap:6px;z-index:4}
-.timeline-edit-btn,.timeline-delete-btn{position:static!important;width:36px;height:36px;border:0;border-radius:10px;font-size:17px}
-.timeline-edit-btn{background:#eef5ff}
-@media (orientation: landscape) and (max-height: 600px){body::before{content:'Поверните телефон вертикально';position:fixed;inset:0;z-index:99999;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;text-align:center;padding:30px}}
+/* v1.6.1 */
+.timeline-actions{position:absolute;right:8px;top:8px;display:flex;gap:6px}.timeline-item{position:relative;padding-right:82px}.timeline-edit-btn,.timeline-delete-btn{border:0;background:#f3f4f6;border-radius:10px;padding:7px;font-size:16px}.about-version-card{font-size:18px;line-height:1.8;background:#f8fafc;border:1px solid #dbeafe;border-radius:18px;padding:20px}@media (orientation: landscape) and (max-height:600px){body::before{content:'Поверните телефон вертикально';position:fixed;inset:0;z-index:99999;background:#111827;color:white;display:flex;align-items:center;justify-content:center;text-align:center;font-size:28px;font-weight:700;padding:24px}body>*{visibility:hidden}}
