@@ -1,4 +1,3 @@
-const FRONTEND_VERSION = '1.6.1';
 
 // PWA работает только в портретной ориентации. Manifest задаёт основной режим,
 // а этот вызов дополнительно фиксирует его там, где браузер это поддерживает.
@@ -199,8 +198,6 @@ function loadData(options) {
     null,
     function(data) {
       applyAppData(data);
-      const backendVersionNode = document.getElementById('backendVersion');
-      if (backendVersionNode) backendVersionNode.textContent = data.version || 'не определена';
       saveCachedAppData(CRM.data);
       restoreNewRequestDraft();
       if (!silent) showStatus('');
@@ -1816,12 +1813,12 @@ function renderEmergencyTimeline(events) {
     <div class="emergency-timeline">
       <div class="timeline-title">Хронология аварии</div>
       ${visible.map(function(event) {
-        const actionButtons = event.id
-          ? '<div class="timeline-actions"><button type="button" class="timeline-edit-btn" onclick="editEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\',\'' + escapeJs(event.stage || '') + '\',\'' + escapeJs(event.comment || '') + '\')" aria-label="Изменить запись">✏️</button><button type="button" class="timeline-delete-btn" onclick="deleteEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\')" aria-label="Удалить запись">🗑</button></div>'
+        const deleteButton = event.id
+          ? '<button type="button" class="timeline-delete-btn" onclick="deleteEmergencyTimelineEvent(\'' + escapeJs(event.id) + '\')" aria-label="Удалить запись">🗑</button>'
           : '';
         return `
           <div class="timeline-item">
-            ${actionButtons}
+            ${deleteButton}
             <div class="timeline-date">${escapeHtml(event.date || '')}</div>
             <div class="timeline-stage">${escapeHtml(event.stage || '')}</div>
             ${event.comment
@@ -1832,21 +1829,6 @@ function renderEmergencyTimeline(events) {
       }).join('')}
     </div>
   `;
-}
-
-function editEmergencyTimelineEvent(eventId, currentStage, currentComment) {
-  if (!eventId) return;
-  const stage = window.prompt('Название этапа:', currentStage || '');
-  if (stage === null) return;
-  const comment = window.prompt('Комментарий:', currentComment || '');
-  if (comment === null) return;
-  showStatus('Сохраняю изменения…');
-  apiCall('updateEmergencyEvent', { eventId: eventId, stage: stage.trim(), comment: comment.trim() }, function(result) {
-    showStatus(result.message || 'Запись изменена');
-    loadData({ silent: true });
-  }, function(error) {
-    showStatus('Не удалось изменить запись: ' + error, true);
-  });
 }
 
 function deleteEmergencyTimelineEvent(eventId) {
@@ -1886,10 +1868,8 @@ function closeEmergencyModal() {
 }
 
 async function confirmEmergencyEvent() {
-  if (CRM.state.emergencySaving) return;
-  CRM.state.emergencySaving = true;
   const rowNumber = CRM.state.currentEmergencyRowNumber;
-  if (!rowNumber) { CRM.state.emergencySaving = false; return; }
+  if (!rowNumber) return;
 
   const button = document.getElementById('emergencyConfirmBtn');
   const cancelButton = document.getElementById('emergencyCancelBtn');
@@ -1936,12 +1916,10 @@ async function confirmEmergencyEvent() {
     endActionFeedback(button, '✓ Сохранено', 1400);
     if (cancelButton) cancelButton.disabled = false;
     window.setTimeout(closeEmergencyModal, 650);
-    CRM.state.emergencySaving = false;
   } catch (error) {
     endActionFeedback(button);
     if (cancelButton) cancelButton.disabled = false;
     setEmergencyStatus('Ошибка: ' + error.message, true);
-    CRM.state.emergencySaving = false;
   }
 }
 
@@ -2723,6 +2701,14 @@ function renderHouseCard() {
       <option value="">— Выберите квартиру —</option>
       ${flats.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('')}
     </select>
+    <h2 class="house-section-title">Короткая история дома</h2>
+    <div class="house-quick-tabs">
+      <button type="button" onclick="setHouseFeedFilter('all')">Всё</button>
+      <button type="button" onclick="setHouseFeedFilter('works')">Работы</button>
+      <button type="button" onclick="setHouseFeedFilter('inspections')">Осмотры</button>
+      <button type="button" onclick="setHouseFeedFilter('requests')">Заявки</button>
+    </div>
+    <div id="houseCompactFeed" class="house-compact-feed"></div>
     <h2 class="house-section-title">Заявки по дому</h2>
     <div class="house-request-list">
       ${requests.length ? requests.slice().reverse().map(renderHouseRequestItem).join('') :
@@ -3089,6 +3075,7 @@ function renderHouseCard() {
     <div id="houseRequestsSummary" class="report-summary"></div>
     <div id="houseRequestsList" class="house-request-list"></div>`;
 
+  renderHouseCompactFeed();
   if (!getValue('reportDateFrom') && !getValue('reportDateTo')) {
     applyReportPeriod();
   } else {
@@ -3096,6 +3083,18 @@ function renderHouseCard() {
   }
 }
 
+
+let houseFeedFilter='all';
+function setHouseFeedFilter(value){houseFeedFilter=value||'all';renderHouseCompactFeed();}
+function houseFeedKind(r){if(isInspectionRecord(r))return'inspections';if(isCompletedWorkRecord(r))return'works';return'requests';}
+function renderHouseCompactFeed(){
+  const box=document.getElementById('houseCompactFeed');if(!box)return;
+  const house=getValue('houseCardSelect');
+  let rows=(CRM.data.allRequests||[]).filter(r=>String(r.house||'')===house);
+  if(houseFeedFilter!=='all')rows=rows.filter(r=>houseFeedKind(r)===houseFeedFilter);
+  rows=rows.slice(0,40);
+  box.innerHTML=rows.length?rows.map(r=>{const kind=houseFeedKind(r),icon=kind==='inspections'?'👀':kind==='works'?'🛠':'🚰';const date=r.doneDate||r.date||'';const where=r.flat?(' · '+r.flat):'';return '<div class="compact-history-item"><div><strong>'+escapeHtml(date)+'</strong><span>'+icon+' '+escapeHtml(kind==='inspections'?'Осмотр':kind==='works'?'Выполненная работа':'Заявка')+escapeHtml(where)+'</span></div><p>'+escapeHtml(r.description||'')+'</p></div>';}).join(''):'<div class="empty-note">Записей нет.</div>';
+}
 function reportPeriodText() {
   const from = getValue('reportDateFrom');
   const to = getValue('reportDateTo');
@@ -3767,86 +3766,81 @@ function createOtherAddressRequest(address) {
 }
 
 
-/* ===== v0.18: режим обхода дома ===== */
-CRM.walk = { active:false, house:'', startedAt:null, entries:[] };
+/* ===== v2.0: быстрые осмотры дома ===== */
+const INSPECTION_BASE_AREAS = ['Подвал','ИТП','Чердак','Кровля','Придомовая территория'];
 
 function setupWalkthroughView() {
   const select = document.getElementById('walkHouse');
   if (!select || !CRM || !CRM.data) return;
-
   const current = select.value;
-  const houses = Array.isArray(CRM.data.houses)
-    ? CRM.data.houses
-    : [];
-
-  select.innerHTML =
-    '<option value="">— Выберите дом —</option>' +
-    houses.map(function(house) {
-      return '<option value="' + escapeHtml(house) + '">' +
-        escapeHtml(house) +
-        '</option>';
-    }).join('') +
+  const houses = Array.isArray(CRM.data.houses) ? CRM.data.houses : [];
+  select.innerHTML = '<option value="">— Выберите дом —</option>' +
+    houses.map(h => '<option value="'+escapeHtml(h)+'">'+escapeHtml(h)+'</option>').join('') +
     '<option value="__OTHER__">Другой адрес</option>';
-
-  const known = Array.from(select.options).some(function(option) {
-    return option.value === current;
-  });
-
-  if (current && known) {
-    select.value = current;
-  }
-
+  if (current && Array.from(select.options).some(o => o.value === current)) select.value=current;
   handleWalkHouseChange();
-  renderWalkSession();
+  renderInspectionAreas();
+  renderRecentInspections();
 }
 
-function startWalkthrough() {
-  const house = getWalkHouseValue();
-
-  if (!house) {
-    alert(
-      getValue('walkHouse') === '__OTHER__'
-        ? 'Введи адрес для обхода'
-        : 'Выбери дом для обхода'
-    );
-    return;
-  }
-
-  CRM.walk = {
-    active: true,
-    house: house,
-    startedAt: new Date(),
-    entries: []
-  };
-
-  renderWalkSession();
+function inspectionAreasForHouse(house){
+  const profile=(CRM.data.houseProfiles||{})[house]||{};
+  const entrances=Math.max(0,Number(profile.entrances||0));
+  const extras=Array.isArray(profile.extras)?profile.extras:[];
+  const list=INSPECTION_BASE_AREAS.slice();
+  for(let i=1;i<=entrances;i++) list.push('Подъезд '+i);
+  extras.forEach(x=>{ if(x&&!list.includes(x)) list.push(x); });
+  list.push('Другое');
+  return list;
 }
 
-function finishWalkthrough(){ if(!CRM.walk.active)return; CRM.walk.active=false; renderWalkSession(); }
-function resetWalkthrough(){ CRM.walk={active:false,house:'',startedAt:null,entries:[]}; const s=document.getElementById('walkHouse'); if(s)s.value=''; clearWalkEntryForm(); renderWalkSession(); }
-function renderWalkSession(){
-  const setup=document.getElementById('walkSetup'), active=document.getElementById('walkActive'), summary=document.getElementById('walkSummary'); if(!setup||!active||!summary)return;
-  setup.hidden=CRM.walk.active||(!CRM.walk.active&&CRM.walk.entries.length>0); active.hidden=!CRM.walk.active; summary.hidden=CRM.walk.active||CRM.walk.entries.length===0;
-  if(CRM.walk.active){ setText('walkHouseTitle',CRM.walk.house); setText('walkStartedAt','Начат в '+CRM.walk.startedAt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})); setText('walkCounter',String(CRM.walk.entries.length)); renderWalkEntries(); }
-  else if(CRM.walk.entries.length) renderWalkSummary();
+function renderInspectionAreas(){
+  const box=document.getElementById('inspectionAreas'); if(!box)return;
+  const house=getWalkHouseValue();
+  if(!house){box.innerHTML='<div class="empty-note">Сначала выбери дом.</div>';return;}
+  box.innerHTML=inspectionAreasForHouse(house).map((area,i)=>
+    '<label class="inspection-check"><input type="checkbox" name="inspectionArea" value="'+escapeHtml(area)+'"><span>'+escapeHtml(area)+'</span></label>'
+  ).join('');
+  renderRecentInspections();
 }
-function toggleWalkCustomLocation(){ const s=document.getElementById('walkLocation'),i=document.getElementById('walkCustomLocation'); if(!s||!i)return; i.hidden=s.value!=='Другое'; if(i.hidden)i.value=''; else i.focus(); }
-function getWalkLocation(){ const v=getValue('walkLocation'); return v==='Другое'?getValue('walkCustomLocation'):v; }
-function clearWalkEntryForm(){ setValue('walkLocation',''); setValue('walkCustomLocation',''); setValue('walkDescription',''); setValue('walkPlanDate',''); const i=document.getElementById('walkCustomLocation'); if(i)i.hidden=true; }
-function saveWalkEntry(){
-  if(!CRM.walk.active)return; const location=getWalkLocation(),description=getValue('walkDescription'),planDate=getValue('walkPlanDate'),btn=document.getElementById('walkSaveBtn');
-  if(!location){showWalkStatus('Укажи место или объект',true);return;} if(!description){showWalkStatus('Продиктуй или введи замечание',true);return;}
-  if(btn){btn.disabled=true;btn.textContent='Сохраняю...';}
-  apiCall('addRequest',{house:CRM.walk.house,flat:location,description:description,name:'Обнаружено при обходе',phone:'',planDate:planDate,isEmergency:false,category:'Общее имущество',source:'Обход дома'},function(result){CRM.walk.entries.push({id:result.id||'',location,description,planDate}); clearWalkEntryForm(); renderWalkSession(); loadData(); if(btn){btn.disabled=false;btn.textContent='✓ Сохранить замечание';} showWalkStatus('Замечание сохранено',false);},function(error){if(btn){btn.disabled=false;btn.textContent='✓ Сохранить замечание';} showWalkStatus('Ошибка: '+error,true);});
+function selectedInspectionAreas(){return Array.from(document.querySelectorAll('input[name="inspectionArea"]:checked')).map(x=>x.value);}
+function clearInspectionAreas(){document.querySelectorAll('input[name="inspectionArea"]').forEach(x=>x.checked=false);}
+function selectInspectionCommon(){document.querySelectorAll('input[name="inspectionArea"]').forEach(x=>x.checked=['Подвал','ИТП'].includes(x.value));}
+
+async function saveHouseInspection(){
+  const house=getWalkHouseValue(), areas=selectedInspectionAreas(), note=getValue('walkDescription').trim(), btn=document.getElementById('walkSaveBtn');
+  if(!house)return showWalkStatus('Выбери дом',true);
+  if(!areas.length)return showWalkStatus('Отметь хотя бы одно осмотренное место',true);
+  if(btn&&btn.disabled)return;
+  const resultText=note||'Замечаний нет';
+  const description='Осмотрено: '+areas.join(', ')+'.\n'+resultText;
+  try{
+    if(btn){btn.disabled=true;btn.classList.add('is-saving');btn.textContent='Сохраняю осмотр…';}
+    const result=await apiCallPromise('addRequest',{house,flat:areas.join(', '),description,name:'',phone:'',planDate:'',isEmergency:false,category:'Осмотр дома',priority:'Осмотр',source:'Осмотр дома',recordType:'inspection'});
+    const files=Array.from((document.getElementById('walkPhotos')||{}).files||[]).slice(0,3);
+    if(files.length){
+      await uploadRequestPhotos(files,result.rowNumber,result.id,'before',text=>{if(btn)btn.textContent=text;});
+    }
+    if(btn)btn.textContent='Обновляю историю…';
+    await loadDataPromise();
+    clearInspectionAreas(); setValue('walkDescription',''); const inp=document.getElementById('walkPhotos'); if(inp)inp.value='';
+    renderRecentInspections(); showWalkStatus('✓ Осмотр сохранён',false);
+  }catch(e){showWalkStatus('Ошибка: '+(e.message||e),true);}
+  finally{if(btn){btn.disabled=false;btn.classList.remove('is-saving');btn.textContent='✓ Сохранить осмотр';}}
 }
-function renderWalkEntries(){ const l=document.getElementById('walkSessionList'); if(!l)return; if(!CRM.walk.entries.length){l.innerHTML='<div class="empty-note">Во время обхода замечаний пока нет.</div>';return;} l.innerHTML='<h2 class="walk-list-title">Замечания этого обхода</h2>'+CRM.walk.entries.slice().reverse().map((e,i)=>'<div class="walk-entry-item"><div class="walk-entry-number">'+(CRM.walk.entries.length-i)+'</div><div><strong>📍 '+escapeHtml(e.location)+'</strong><div>'+escapeHtml(e.description)+'</div>'+(e.planDate?'<div class="walk-entry-plan">📅 '+escapeHtml(formatPlanForShare(e.planDate))+'</div>':'')+'</div></div>').join(''); }
-function renderWalkSummary(){ const b=document.getElementById('walkSummary'); if(!b)return; const counts={}; CRM.walk.entries.forEach(e=>counts[e.location]=(counts[e.location]||0)+1); const rows=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'ru',{numeric:true})).map(k=>'<div class="walk-summary-row"><span>'+escapeHtml(k)+'</span><strong>'+counts[k]+'</strong></div>').join(''); b.innerHTML='<div class="walk-summary-card"><div class="walk-summary-icon">✓</div><h2>Обход завершён</h2><div class="walk-summary-house">'+escapeHtml(CRM.walk.house)+'</div><div class="walk-summary-total">Создано замечаний: <strong>'+CRM.walk.entries.length+'</strong></div><div class="walk-summary-rows">'+rows+'</div><button type="button" onclick="shareWalkSummary()">📤 Поделиться итогом</button><button type="button" class="walk-new-btn" onclick="resetWalkthrough()">Начать новый обход</button></div>'; }
-function buildWalkSummaryText(){ const lines=['ОБХОД ДОМА',CRM.walk.house,'Создано замечаний: '+CRM.walk.entries.length,'']; CRM.walk.entries.forEach((e,i)=>{lines.push((i+1)+'. '+e.location,e.description); if(e.planDate)lines.push('Срок: '+formatPlanForShare(e.planDate)); lines.push('');}); return lines.join('\n').trim(); }
-async function shareWalkSummary(){ const text=buildWalkSummaryText(); if(navigator.share){try{await navigator.share({title:'Обход дома: '+CRM.walk.house,text});return;}catch(e){if(e&&e.name==='AbortError')return;}} try{await navigator.clipboard.writeText(text);alert('Итог обхода скопирован');}catch(e){prompt('Скопируй итог обхода:',text);} }
-function showWalkStatus(text,isError){ const b=document.getElementById('walkVoiceStatus'); if(!b)return; b.textContent=text;b.classList.toggle('error',!!isError);b.style.display='block';clearTimeout(showWalkStatus.timer);showWalkStatus.timer=setTimeout(()=>b.style.display='none',2500); }
+
+function loadDataPromise(){return new Promise((resolve,reject)=>{apiCall('getAppData',{},data=>{applyAppData(data);saveCachedAppData(CRM.data);resolve(data);},reject);});}
+function isInspectionRecord(r){return String(r.category||'')==='Осмотр дома'||String(r.source||'')==='Осмотр дома'||String(r.priority||'')==='Осмотр';}
+function isCompletedWorkRecord(r){return String(r.category||'')==='Выполненная работа'||String(r.source||'')==='Выполненная работа';}
+function renderRecentInspections(){
+  const box=document.getElementById('inspectionRecent'); if(!box||!CRM||!CRM.data)return;
+  const house=getWalkHouseValue(); if(!house){box.innerHTML='';return;}
+  const rows=(CRM.data.allRequests||[]).filter(r=>String(r.house||'')===house&&isInspectionRecord(r)).slice(0,8);
+  box.innerHTML='<h2 class="house-section-title">Последние осмотры</h2>'+(rows.length?rows.map(r=>'<div class="compact-history-item"><div><strong>'+escapeHtml(r.doneDate||r.date||'')+'</strong><span>👀 '+escapeHtml(r.flat||'Осмотр дома')+'</span></div><p>'+escapeHtml(r.description||'')+'</p></div>').join(''):'<div class="empty-note">Осмотров этого дома пока нет.</div>');
+}
+function showWalkStatus(text,isError){ const b=document.getElementById('walkVoiceStatus'); if(!b)return; b.textContent=text;b.classList.toggle('error',!!isError);b.style.display='block';clearTimeout(showWalkStatus.timer);showWalkStatus.timer=setTimeout(()=>b.style.display='none',3500); }
 let walkRecognition=null,walkVoiceActive=false;
 function toggleWalkVoice(){ const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){showWalkStatus('Голосовой ввод не поддерживается',true);return;} if(walkVoiceActive&&walkRecognition){walkRecognition.stop();return;} walkRecognition=new SR(); walkRecognition.lang='ru-RU'; walkRecognition.interimResults=false; walkRecognition.continuous=false; const btn=document.getElementById('walkVoiceBtn'); walkRecognition.onstart=()=>{walkVoiceActive=true;if(btn){btn.classList.add('listening');btn.textContent='⏹ Остановить';}showWalkStatus('Слушаю…',false);}; walkRecognition.onresult=e=>{const t=e.results[0][0].transcript.trim(); const d=document.getElementById('walkDescription'); if(d)d.value=t; showWalkStatus('Распознано',false);}; walkRecognition.onerror=e=>showWalkStatus('Ошибка микрофона: '+(e.error||'неизвестно'),true); walkRecognition.onend=()=>{walkVoiceActive=false;if(btn){btn.classList.remove('listening');btn.textContent='🎙 Говорить';}}; walkRecognition.start(); }
-
 
 /* v0.20 — запуск из ярлыков Windows */
 document.addEventListener('DOMContentLoaded', function() {

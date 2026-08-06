@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>НашДом CRM</title>
 
-  <link rel="manifest" href="./manifest.json?v=1.6.1">
+  <link rel="manifest" href="./manifest.json?v=1.2.3">
   <link rel="stylesheet" href="./style.css?v=1.2.3">
 </head>
 
@@ -24,7 +24,7 @@
     <header class="header">
       <div>
         <div class="logo">🏠 НашДом CRM</div>
-        <div class="subtitle">НашДом CRM v1.6.1<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
+        <div class="subtitle">НашДом CRM v2.0.0<span id="pushStatusIcon" class="push-status-icon" title="Уведомления">🔕</span></div>
         <button class="key-btn" onclick="resetAccessKey()">Сменить ключ</button>
       </div>
     </header>
@@ -393,43 +393,29 @@
 
     <section id="viewWalk" class="view">
       <main class="card">
-        <h1>🚶 Обход дома</h1>
-        <div id="walkSetup">
-          <label>Выберите дом</label>
-          <select id="walkHouse" onchange="handleWalkHouseChange()"></select>
-          <input
-            id="walkOtherAddress"
-            class="other-address-input"
-            type="text"
-            placeholder="Введите полный адрес"
-            hidden
-          >
-          <button type="button" onclick="startWalkthrough()">▶ Начать обход</button>
-        </div>
-        <div id="walkActive" hidden>
-          <div class="walk-header">
-            <div><div class="walk-house" id="walkHouseTitle"></div><div class="walk-time" id="walkStartedAt"></div></div>
-            <span class="walk-counter" id="walkCounter">0</span>
-          </div>
-          <div class="walk-entry-card">
-            <label>Место / объект</label>
-            <select id="walkLocation" onchange="toggleWalkCustomLocation()"><option value="">— Выберите —</option></select>
-            <input id="walkCustomLocation" type="text" placeholder="Укажите место" hidden>
-            <label>Замечание</label>
-            <textarea id="walkDescription" placeholder="Например: не работает доводчик"></textarea>
-            <button id="walkVoiceBtn" type="button" class="voice-btn" onclick="toggleWalkVoice()">🎙 Говорить</button>
-            <div id="walkVoiceStatus" class="voice-status"></div>
-            <label>Фотографии (до 3)</label>
-            <input id="walkPhotos" class="photo-input" type="file" accept="image/*" multiple>
+        <h1>👀 Осмотр дома</h1>
+        <p class="section-subtitle">Быстрый осмотр по пути: отметь только те места, куда заходил.</p>
+        <label>Дом</label>
+        <select id="walkHouse" onchange="handleWalkHouseChange(); renderInspectionAreas()"></select>
+        <input id="walkOtherAddress" class="other-address-input" type="text" placeholder="Введите полный адрес" hidden>
 
-            <label>Срок / дата выполнения</label>
-            <input id="walkPlanDate" type="datetime-local">
-            <button id="walkSaveBtn" type="button" onclick="saveWalkEntry()">✓ Сохранить замечание</button>
-          </div>
-          <div class="walk-session-list" id="walkSessionList"></div>
-          <button type="button" class="walk-finish-btn" onclick="finishWalkthrough()">■ Завершить обход</button>
+        <label>Что осмотрено</label>
+        <div id="inspectionAreas" class="inspection-area-grid"></div>
+        <div class="inspection-quick-row">
+          <button type="button" class="inspection-secondary" onclick="selectInspectionCommon()">Подвал + ИТП</button>
+          <button type="button" class="inspection-secondary" onclick="clearInspectionAreas()">Снять отметки</button>
         </div>
-        <div id="walkSummary" hidden></div>
+
+        <label>Результат / замечания</label>
+        <textarea id="walkDescription" placeholder="Можно оставить пустым — сохранится «Замечаний нет». Например: закрыты слуховые окна; повреждена изоляция ГВС."></textarea>
+        <button id="walkVoiceBtn" type="button" class="voice-btn" onclick="toggleWalkVoice()">🎙 Говорить</button>
+        <div id="walkVoiceStatus" class="voice-status"></div>
+
+        <label>Фотографии (до 3)</label>
+        <input id="walkPhotos" class="photo-input" type="file" accept="image/*" multiple>
+        <button id="walkSaveBtn" type="button" onclick="saveHouseInspection()">✓ Сохранить осмотр</button>
+
+        <div id="inspectionRecent" class="inspection-recent"></div>
       </main>
     </section>
     <section id="viewMore" class="view">
@@ -438,7 +424,7 @@
         <div class="more-menu-grid">
           <button type="button" onclick="showView('houses')"><span>🏢</span><strong>Дома</strong><small>Карточки домов и отчёты</small></button>
           <button type="button" onclick="showView('other')"><span>📍</span><strong>Другие адреса</strong><small>Разовые заявки вне списка домов</small></button>
-          <button type="button" onclick="showView('walk')"><span>🚶</span><strong>Обход</strong><small>Замечания по дому во время обхода</small></button>
+          <button type="button" onclick="showView('walk')"><span>👀</span><strong>Осмотр дома</strong><small>Быстрая отметка подвала, ИТП, чердака и подъездов</small></button>
         </div>
       </main>
     </section>
@@ -448,7 +434,7 @@
       <button data-view="new" onclick="showView('new')"><span class="nav-icon">➕</span><span>Новая</span></button>
       <button data-view="accepted" onclick="showView('accepted')"><span class="nav-icon">📋</span><span>Активные</span></button>
       <button data-view="search" onclick="showView('search')"><span class="nav-icon">🔍</span><span>Журнал</span></button>
-      <button data-view="about" onclick="showView('about')"><span class="nav-icon">ℹ️</span><span>Версия</span></button>
+      <button data-view="more" onclick="showView('more')"><span class="nav-icon">☰</span><span>Ещё</span></button>
     </nav>
   </div>
 
@@ -468,7 +454,7 @@
     <button type="button" id="photoLightboxNext" class="photo-lightbox-nav photo-lightbox-next" onclick="showNextPhoto(event)" aria-label="Следующее фото">›</button>
   </div>
 
-  <script src="./app.js?v=1.6.1"></script>
+  <script src="./app.js?v=2.0.0"></script>
   <script type="module" src="firebase-push.js"></script>
 
   <script>
